@@ -188,10 +188,12 @@ function OpenArmRobot({ progress, robotRef }: RobotProps) {
             ? linkNumber % 2 ? '#648777' : '#416f5d'
             : '#285846'
         const sourceMaterials = Array.isArray(child.material) ? child.material : [child.material]
-        const upgraded = sourceMaterials.map(() => new THREE.MeshStandardMaterial({
+        // The imported URDF has a few flipped/concave normals around the elbow
+        // shells. Keep the robot's palette unlit so those inner faces cannot
+        // catch a highlight and read as if they were glowing.
+        const upgraded = sourceMaterials.map(() => new THREE.MeshBasicMaterial({
           color,
-          roughness: 0.82,
-          metalness: 0.02,
+          toneMapped: false,
         }))
         child.material = Array.isArray(child.material) ? upgraded : upgraded[0]
       }
