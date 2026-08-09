@@ -1,0 +1,9 @@
+node_modules/
+dist/
+out/
+.vite/
+*.tsbuildinfo
+.DS_Store
+*.mp4
+
+# public/ は公開3Dモデルを含む手作業入力素材のため追跡対象にする。
