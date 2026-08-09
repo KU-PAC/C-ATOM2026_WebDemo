@@ -183,12 +183,16 @@ function OpenArmRobot({ progress, robotRef }: RobotProps) {
         const linkName = link?.name ?? ''
         const linkNumber = Number(linkName.match(/link(\d+)/)?.[1] ?? 0)
         const color = linkName.includes('_left_')
-          ? linkNumber % 2 ? '#41675a' : '#36594d'
+          ? linkNumber % 2 ? '#477a68' : '#2f6654'
           : linkName.includes('_right_')
-            ? linkNumber % 2 ? '#5b6761' : '#4d5b54'
-            : '#35413c'
+            ? linkNumber % 2 ? '#648777' : '#416f5d'
+            : '#285846'
         const sourceMaterials = Array.isArray(child.material) ? child.material : [child.material]
-        const upgraded = sourceMaterials.map(() => new THREE.MeshBasicMaterial({ color, toneMapped: false }))
+        const upgraded = sourceMaterials.map(() => new THREE.MeshStandardMaterial({
+          color,
+          roughness: 0.82,
+          metalness: 0.02,
+        }))
         child.material = Array.isArray(child.material) ? upgraded : upgraded[0]
       }
     })
@@ -452,6 +456,15 @@ export function PatchAssistScene({ progress, cameraMode }: PatchAssistSceneProps
   return (
     <>
       <fog attach="fog" args={['#d2d4cd', 4.6, 8.5]} />
+      <ambientLight intensity={0.72} color="#f4f1e8" />
+      <directionalLight
+        position={[4.5, 6, 4]}
+        intensity={1.45}
+        color="#fffaf0"
+        castShadow
+        shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.0004}
+      />
       <LabEnvironment />
       <OpenArmRobot progress={progress} robotRef={robotRef} />
       <TreatmentPatch progress={progress} robotRef={robotRef} />

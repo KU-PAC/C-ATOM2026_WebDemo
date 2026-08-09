@@ -171,10 +171,10 @@ export default function App() {
         </a>
 
         <div className="header-meta">
-          <span className="team-name">KUPAC / KYOTO</span>
-          <span className="live-badge"><i /> Simulation online</span>
-          <button className="icon-button" type="button" onClick={() => setShowAbout(true)} aria-label="デモについて">
+          <p className="header-statement"><span>背中に、</span>手が届く未来。</p>
+          <button className="about-button" type="button" onClick={() => setShowAbout(true)}>
             <InfoIcon />
+            <span>プロジェクト概要</span>
           </button>
         </div>
       </header>
@@ -245,7 +245,7 @@ export default function App() {
             gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
             onCreated={({ gl }) => {
               gl.setClearColor('#d2d4cd')
-              gl.toneMappingExposure = 0.62
+              gl.toneMappingExposure = 0.92
             }}
           >
             <Suspense fallback={<SceneLoader />}>

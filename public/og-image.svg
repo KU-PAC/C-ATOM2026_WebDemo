@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="fade" x1="0" x2="1">
+      <stop offset="0" stop-color="#f2f1eb"/>
+      <stop offset="0.42" stop-color="#f2f1eb" stop-opacity="0.96"/>
+      <stop offset="0.7" stop-color="#f2f1eb" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <image href="og-background.png" width="1200" height="630" preserveAspectRatio="xMidYMid slice"/>
+  <rect width="1200" height="630" fill="url(#fade)"/>
+  <g transform="translate(72 62)">
+    <circle cx="23" cy="23" r="23" fill="#204c3b"/>
+    <rect x="13" y="8" width="7" height="30" rx="3.5" fill="#f8f8f3" transform="rotate(33 16.5 23)"/>
+    <rect x="28" y="9" width="7" height="21" rx="3.5" fill="#a7dcc4" transform="rotate(33 31.5 19.5)"/>
+    <text x="61" y="22" fill="#17241f" font-family="Noto Sans CJK JP, sans-serif" font-size="23" font-weight="700">PatchAssist</text>
+    <text x="61" y="42" fill="#6d756f" font-family="Noto Sans CJK JP, sans-serif" font-size="10" font-weight="700" letter-spacing="2.6">PHYSICAL AI PROTOTYPE</text>
+  </g>
+  <g transform="translate(72 200)" font-family="Noto Sans CJK JP, sans-serif">
+    <text y="0" fill="#204c3b" font-size="13" font-weight="700" letter-spacing="3">CHALLENGE ATOM / KYOTO</text>
+    <text y="80" fill="#17241f" font-size="54" font-weight="600" letter-spacing="-3">「貼れない」を、</text>
+    <text y="148" fill="#204c3b" font-size="54" font-weight="600" letter-spacing="-3">ひとりでできるへ。</text>
+    <rect y="172" width="58" height="4" rx="2" fill="#ff6b45"/>
+    <text y="222" fill="#58645e" font-size="19" font-weight="500">湿布貼付を支援する、しなやかな双腕フィジカルAI。</text>
+  </g>
+  <text x="72" y="580" fill="#78827c" font-family="Noto Sans CJK JP, sans-serif" font-size="12" font-weight="700" letter-spacing="2">OPENARM 2.0  ·  VLA CONTROL  ·  KUPAC</text>
+</svg>

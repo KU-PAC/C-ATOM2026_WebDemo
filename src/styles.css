@@ -133,46 +133,47 @@ button {
 .header-meta {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 22px;
 }
 
-.team-name {
-  color: #707771;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.13em;
+.header-statement {
+  margin: 0;
+  color: #78817b;
+  font-family: "Noto Serif JP", "Yu Mincho", serif;
+  font-size: 12px;
+  letter-spacing: 0.08em;
 }
 
-.live-badge {
+.header-statement span {
+  color: var(--green);
+}
+
+.about-button {
+  min-height: 38px;
+  padding: 0 4px 0 13px;
+  border: 0;
+  border-left: 1px solid var(--line);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 11px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: #4c5a53;
-  background: rgba(255, 255, 255, 0.56);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  gap: 7px;
+  color: #4d5a54;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: color 180ms ease;
 }
 
-.live-badge i,
-.telemetry-heading i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #35a873;
-  box-shadow: 0 0 0 4px rgba(53, 168, 115, 0.14);
-  animation: live-pulse 2s ease-in-out infinite;
+.about-button svg {
+  width: 17px;
+  height: 17px;
 }
 
-@keyframes live-pulse {
-  50% { box-shadow: 0 0 0 7px rgba(53, 168, 115, 0.04); }
+.about-button:hover {
+  color: var(--green);
 }
 
-.icon-button,
 .scene-tool-button {
   width: 36px;
   height: 36px;
@@ -185,7 +186,6 @@ button {
   transition: 180ms ease;
 }
 
-.icon-button:hover,
 .scene-tool-button:hover {
   background: #fff;
   border-color: rgba(23, 36, 31, 0.28);
@@ -605,6 +605,19 @@ button {
   font-weight: 750;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.telemetry-heading i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #35a873;
+  box-shadow: 0 0 0 4px rgba(53, 168, 115, 0.14);
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  50% { box-shadow: 0 0 0 7px rgba(53, 168, 115, 0.04); }
 }
 
 .telemetry-card dl {
@@ -1122,13 +1135,13 @@ button {
   }
 
   .brand-copy small,
-  .team-name {
+  .header-statement {
     display: none;
   }
 
-  .live-badge {
-    padding: 7px 10px;
-    font-size: 8px;
+  .about-button {
+    min-height: 34px;
+    padding-left: 10px;
   }
 
   .header-meta {
