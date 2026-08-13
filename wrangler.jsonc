@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // 既存の Worker（静的アセット配信）に上書きデプロイする。
+  // 名前を変えると URL が変わるので、ここは触らないこと。
+  "name": "challenge-atom-kyoto",
+  "compatibility_date": "2026-08-09",
+  "assets": {
+    "directory": "./dist",
+    // 単一ページなので、未知のパスは 404 ではなく index.html を返す。
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
