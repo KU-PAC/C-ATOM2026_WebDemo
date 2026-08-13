@@ -1,0 +1,312 @@
+/* ==================================================================
+   制御フロー — SFC（IEC 61131-3 Sequential Function Chart）
+   縦の連鎖・遷移条件の横バー・同時実行の二重線という書式をそのまま守る。
+   面と影は使わず、罫と黒の反転だけで進行状態を示す。
+   ================================================================== */
+
+.sfc {
+  --sfc-box: clamp(11.5rem, 22vw, 19rem);
+  --sfc-spine: calc(var(--sfc-box) / 2);
+  --sfc-link: 1.35rem;
+  display: grid;
+  justify-items: start;
+  /* 全幅まで伸ばすとアクション欄だけが間延びするので、図の幅は抑える */
+  max-width: 68rem;
+}
+
+/* 行と行のあいだの縦リンク。行の上端パディングの中に引く。 */
+.sfc-row {
+  position: relative;
+  width: 100%;
+  padding-top: var(--sfc-link);
+}
+
+.sfc-row:first-child {
+  padding-top: 0;
+}
+
+.sfc-row:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--sfc-spine);
+  width: 1px;
+  height: var(--sfc-link);
+  background: var(--gray-400);
+}
+
+/* --- ステップ ---------------------------------------------------- */
+
+.sfc-step {
+  display: grid;
+  grid-template-columns: var(--sfc-box) minmax(0, 1fr);
+  align-items: start;
+  gap: 0;
+}
+
+.sfc-step-box {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75em;
+  width: 100%;
+  min-height: 3.4rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--gray-400);
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+/* 初期ステップは二重枠 */
+.sfc-row:first-child .sfc-step-box {
+  box-shadow: inset 0 0 0 3px #ffffff, inset 0 0 0 4px var(--ink);
+  border-color: var(--ink);
+}
+
+.sfc-step-id {
+  font-family: var(--mono);
+  font-size: var(--micro);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 0.2em 0.45em;
+  border: 1px solid currentColor;
+}
+
+.sfc-step-name {
+  font-size: var(--body);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.45;
+}
+
+.sfc-step.is-done .sfc-step-box {
+  border-color: var(--ink);
+}
+
+.sfc-step.is-active .sfc-step-box {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #ffffff;
+}
+
+.sfc-step-box:hover {
+  border-color: var(--ink);
+}
+
+/* --- アクションブロック ------------------------------------------ */
+
+.sfc-actions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--gray-200);
+  border-left: none;
+  align-self: stretch;
+}
+
+.sfc-actions li {
+  display: grid;
+  grid-template-columns: 1.9em minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.75em;
+  padding: 0.45rem 0.8rem;
+}
+
+.sfc-actions li + li {
+  border-top: 1px solid var(--gray-200);
+}
+
+.sfc-qualifier {
+  font-family: var(--mono);
+  font-size: var(--micro);
+  font-weight: 700;
+  text-align: center;
+  border: 1px solid var(--gray-300);
+  line-height: 1.5;
+}
+
+.sfc-step.is-active .sfc-qualifier {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.sfc-action-label {
+  font-size: var(--micro);
+  line-height: 1.7;
+}
+
+.sfc-readout {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--micro);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sfc-step.is-todo .sfc-readout {
+  color: var(--gray-400);
+}
+
+/* --- 遷移 -------------------------------------------------------- */
+
+.sfc-transition {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding-left: calc(var(--sfc-spine) - 1.25rem);
+}
+
+.sfc-bar {
+  width: 2.5rem;
+  height: 0;
+  flex: none;
+  border-top: 1px solid var(--gray-400);
+}
+
+.sfc-transition.is-fired .sfc-bar {
+  border-top-width: 2px;
+  border-top-color: var(--ink);
+}
+
+.sfc-condition {
+  font-family: var(--mono);
+  font-size: var(--micro);
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+}
+
+/* --- 同時実行（並列分岐） ---------------------------------------- */
+
+.sfc-parallel {
+  display: grid;
+  gap: var(--sfc-link);
+}
+
+/* 二重線。開始前は細く、通過後は実線 2 本で描く。 */
+.sfc-rail {
+  height: 5px;
+  border-top: 1px solid var(--gray-400);
+  border-bottom: 1px solid var(--gray-400);
+}
+
+.sfc-parallel.is-open .sfc-rail {
+  border-color: var(--ink);
+}
+
+.sfc-branches {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: calc(var(--pad-x) * 0.5);
+}
+
+.sfc-branch {
+  position: relative;
+  padding-top: var(--sfc-link);
+}
+
+/* 二重線から各枝へ降ろすリンク。枝は自分の中心にぶら下がる。 */
+.sfc-branch::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--sfc-link) * -1 - 3px);
+  left: 50%;
+  width: 1px;
+  height: calc(var(--sfc-link) * 2 + 3px);
+  background: var(--gray-400);
+}
+
+.sfc-branch .sfc-step {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.sfc-branch .sfc-actions {
+  border-left: 1px solid var(--gray-200);
+  border-top: none;
+}
+
+/* --- 先頭ステップへの戻り ---------------------------------------- */
+
+.sfc-jump {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-left: calc(var(--sfc-spine) - 0.45rem);
+  font-family: var(--mono);
+  font-size: var(--micro);
+  letter-spacing: 0.08em;
+}
+
+.sfc-jump-mark {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex: none;
+  border-left: 1px solid var(--ink);
+  border-top: 1px solid var(--ink);
+  transform: rotate(45deg);
+}
+
+/* --- 凡例 -------------------------------------------------------- */
+
+.sfc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.4rem;
+  margin: 0 0 calc(var(--section-gap) * 1.5);
+  padding: 0;
+  list-style: none;
+  font-size: var(--micro);
+}
+
+.sfc-legend li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+}
+
+.sfc-legend b {
+  font-family: var(--mono);
+  font-weight: 700;
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--gray-300);
+}
+
+/* --- 狭い画面：アクションはステップの下へ ------------------------ */
+
+@media (max-width: 767px) {
+  .sfc {
+    --sfc-box: 100%;
+    --sfc-spine: 1.6rem;
+  }
+
+  .sfc-step {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sfc-actions {
+    border-left: 1px solid var(--gray-200);
+    border-top: none;
+  }
+
+  .sfc-branches {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sfc-link);
+  }
+
+  .sfc-branch + .sfc-branch::before {
+    top: calc(var(--sfc-link) * -1);
+    height: calc(var(--sfc-link) * 2);
+  }
+
+  .sfc-transition {
+    padding-left: calc(var(--sfc-spine) - 1.25rem);
+    align-items: flex-start;
+  }
+
+  .sfc-bar {
+    width: 2.5rem;
+    margin-top: 0.6em;
+  }
+}

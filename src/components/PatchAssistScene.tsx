@@ -1,440 +1,207 @@
-import { ContactShadows, Grid, Html, OrbitControls, RoundedBox, useProgress } from '@react-three/drei'
-import { useFrame, useLoader, useThree } from '@react-three/fiber'
-import { useEffect, useMemo, useRef } from 'react'
+import { ContactShadows, Html, OrbitControls, useProgress } from '@react-three/drei'
+import { useFrame, useThree } from '@react-three/fiber'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
-import URDFLoader, { type URDFRobot } from 'urdf-loader'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { OpenArmRig } from './scene/OpenArmRig'
+import { Patient, targetNormalWorld, targetWorld } from './scene/Patient'
+import { type Cups, Workstation } from './scene/Workstation'
+import { APPLY, type DemoState, type StageId } from '../lib/sequence'
 
-type CameraMode = 'overview' | 'detail'
-
-interface PatchAssistSceneProps {
-  progress: number
-  cameraMode: CameraMode
+export const ACCENTS = {
+  scan: '#1183a0',
+  intent: '#2f6b53',
+  vac: '#4a63c8',
+  force: '#ff6b45',
 }
 
-type JointPose = Record<string, number>
+export type CameraMode = 'follow' | 'wide'
 
-interface Keyframe {
-  at: number
-  pose: JointPose
+/**
+ * Each stage is framed along the outward normal of the back (or of the tray)
+ * with enough lateral offset that the robot's own column never blocks the view.
+ */
+const FRAMING: Record<StageId, { camera: [number, number, number]; target: [number, number, number] }> = {
+  scan: { camera: [1.23, 1.8, -0.54], target: [-0.14, 0.96, 0.45] },
+  intent: { camera: [1.3, 1.94, -0.53], target: [-0.14, 1.02, 0.44] },
+  peel: { camera: [0.82, 1.38, 1.0], target: [0.04, 0.86, 0.28] },
+  apply: { camera: [0.86, 1.56, -0.27], target: [-0.14, 0.95, 0.45] },
 }
 
-class OpenArmLoader extends THREE.Loader<URDFRobot> {
-  load(
-    url: string,
-    onLoad: (robot: URDFRobot) => void,
-    onProgress?: (event: ProgressEvent) => void,
-    onError?: (error: unknown) => void,
-  ) {
-    const loader = new URDFLoader(this.manager)
-    loader.packages = { openarm_description: '/models/openarm' }
-    loader.parseCollision = false
-    loader.load(url, onLoad, onProgress, onError)
-  }
+const WIDE = {
+  camera: [2.62, 2.02, 1.46] as [number, number, number],
+  target: [-0.09, 0.94, 0.3] as [number, number, number],
 }
 
-const left = (values: number[]) => Object.fromEntries(values.map((value, index) => [`openarm_left_joint${index + 1}`, value]))
-const right = (values: number[]) => Object.fromEntries(values.map((value, index) => [`openarm_right_joint${index + 1}`, value]))
+/** The framings above are authored for the 16:9 desktop canvas. */
+const REFERENCE_ASPECT = 16 / 9
 
-const pose = (leftArm: number[], rightArm: number[], fingers: [number, number]): JointPose => ({
-  ...left(leftArm),
-  ...right(rightArm),
-  openarm_left_finger_joint1: fingers[0],
-  openarm_right_finger_joint1: fingers[1],
-})
-
-const keyframes: Keyframe[] = [
-  // Joint-space waypoints are generated against the upstream OpenArm 2.0 URDF.
-  // The gripper-base targets and tool directions are solved within every URDF joint limit;
-  // TreatmentPatch then samples the resulting world transforms instead of using a separate path.
-  {
-    at: 0,
-    pose: pose(
-      [1.3963, -0.9575, 0.1921, 1.7541, 0, 0, 0],
-      [-1.3963, 0.9575, -0.1921, 1.7541, 0, 0, 0],
-      [0.64, -0.64],
-    ),
-  },
-  {
-    at: 0.18,
-    pose: pose(
-      [0.9915, 0.0005, 0.3467, 0.7191, 0, 0, 0],
-      [-0.9915, -0.0005, -0.3467, 0.7191, 0, 0, 0],
-      [0.64, -0.64],
-    ),
-  },
-  {
-    at: 0.28,
-    pose: pose(
-      [0.9915, 0.0005, 0.3467, 0.7191, 0, 0, 0],
-      [-0.9915, -0.0005, -0.3467, 0.7191, 0, 0, 0],
-      [0.08, -0.08],
-    ),
-  },
-  {
-    at: 0.36,
-    pose: pose(
-      [0.9915, 0.0005, 0.3467, 0.7191, 0, 0, 0],
-      [-0.9915, -0.0005, -0.3467, 0.7191, 0, 0, 0],
-      [0.08, -0.08],
-    ),
-  },
-  {
-    at: 0.46,
-    pose: pose(
-      [0.9915, 0.0005, 0.3467, 0.7191, 0, 0, 0],
-      [-1.3963, 0.4975, -0.4545, 1.6562, 0, 0, 0],
-      [0.08, -0.08],
-    ),
-  },
-  {
-    at: 0.52,
-    pose: pose(
-      [0.9915, 0.0005, 0.3467, 0.7191, 0, 0, 0],
-      [-0.9915, -0.0005, -0.3467, 0.7191, 0, 0, 0],
-      [0.08, -0.08],
-    ),
-  },
-  {
-    at: 0.64,
-    pose: pose(
-      [1.2558, -0.051, 0.3723, 0.9943, 0, 0, 0],
-      [-1.2558, 0.051, -0.3723, 0.9943, 0, 0, 0],
-      [0.08, -0.08],
-    ),
-  },
-  {
-    at: 0.74,
-    pose: pose(
-      [1.3963, -0.0362, 0.4049, 0.9163, 0.0025, -0.7817, 0.0164],
-      [-1.3963, 0.0362, -0.4049, 0.9163, -0.0025, 0.7817, -0.0164],
-      [0.08, -0.08],
-    ),
-  },
-  {
-    at: 0.82,
-    pose: pose(
-      [1.3397, -0.0865, 0.6325, 0.7565, 0.1671, -0.7854, -0.2665],
-      [-1.3397, 0.0865, -0.6325, 0.7565, -0.1671, 0.7854, 0.2665],
-      [0.08, -0.08],
-    ),
-  },
-  {
-    at: 0.94,
-    pose: pose(
-      [1.2733, -0.0196, 0.6169, 0.5257, 0.1444, -0.7348, -0.2842],
-      [-1.2733, 0.0196, -0.6169, 0.5257, -0.1444, 0.7348, 0.2842],
-      [0.08, -0.08],
-    ),
-  },
-  {
-    at: 0.97,
-    pose: pose(
-      [1.2733, -0.0196, 0.6169, 0.5257, 0.1444, -0.7348, -0.2842],
-      [-1.2733, 0.0196, -0.6169, 0.5257, -0.1444, 0.7348, 0.2842],
-      [0.56, -0.56],
-    ),
-  },
-  {
-    at: 1,
-    pose: pose(
-      [1.3397, -0.0865, 0.6325, 0.7565, 0.1671, -0.7854, -0.2665],
-      [-1.3397, 0.0865, -0.6325, 0.7565, -0.1671, 0.7854, 0.2665],
-      [0.62, -0.62],
-    ),
-  },
-]
-
-function smootherStep(value: number) {
-  const t = THREE.MathUtils.clamp(value, 0, 1)
-  return t * t * t * (t * (t * 6 - 15) + 10)
+/**
+ * A portrait canvas has far less horizontal field than 16:9, so the authored
+ * camera positions would crop the scene at the sides on a phone. Back the
+ * camera off along its own view vector — softened, because a tall frame can
+ * afford to lose a little width — and never past the orbit limit.
+ */
+function aspectPull(aspect: number) {
+  if (!Number.isFinite(aspect) || aspect >= REFERENCE_ASPECT) return 1
+  return Math.min(1.8, (REFERENCE_ASPECT / Math.max(aspect, 0.4)) ** 0.65)
 }
 
-function range(value: number, start: number, end: number) {
-  return THREE.MathUtils.clamp((value - start) / (end - start), 0, 1)
-}
-
-function getInterpolatedPose(progress: number) {
-  let endIndex = keyframes.findIndex((keyframe) => progress <= keyframe.at)
-  if (endIndex <= 0) endIndex = 1
-  if (endIndex < 0) endIndex = keyframes.length - 1
-  const from = keyframes[endIndex - 1]
-  const to = keyframes[endIndex]
-  const amount = smootherStep((progress - from.at) / (to.at - from.at))
-  return Object.fromEntries(
-    Object.keys(from.pose).map((name) => [name, THREE.MathUtils.lerp(from.pose[name], to.pose[name], amount)]),
+function SceneTag({
+  position,
+  label,
+  detail,
+  accent,
+  opacity,
+}: {
+  position: [number, number, number]
+  label: string
+  detail?: string
+  accent: string
+  opacity: number
+}) {
+  if (opacity < 0.02) return null
+  return (
+    <Html position={position} center style={{ pointerEvents: 'none' }} zIndexRange={[9, 0]}>
+      <div className="scene-tag" style={{ '--tag': accent, opacity } as React.CSSProperties}>
+        <i />
+        <span>
+          {label}
+          {detail && <small>{detail}</small>}
+        </span>
+      </div>
+    </Html>
   )
 }
 
-interface RobotProps {
-  progress: number
-  robotRef: { current: URDFRobot | null }
-}
+/** Contact force drawn where the cup meets the back. */
+function ForceProbe({ state }: { state: DemoState }) {
+  const group = useRef<THREE.Group>(null)
+  const shaft = useRef<THREE.Mesh>(null)
+  const ring = useRef<THREE.Mesh>(null)
 
-function OpenArmRobot({ progress, robotRef }: RobotProps) {
-  const robot = useLoader(OpenArmLoader, '/models/openarm/urdf/openarm-v2.urdf')
-
-  useEffect(() => {
-    robot.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.castShadow = true
-        child.receiveShadow = true
-        let link: THREE.Object3D | null = child.parent
-        while (link && link !== robot && !link.name.startsWith('openarm_')) link = link.parent
-        const linkName = link?.name ?? ''
-        const linkNumber = Number(linkName.match(/link(\d+)/)?.[1] ?? 0)
-        const color = linkName.includes('_left_')
-          ? linkNumber % 2 ? '#477a68' : '#2f6654'
-          : linkName.includes('_right_')
-            ? linkNumber % 2 ? '#648777' : '#416f5d'
-            : '#285846'
-        const sourceMaterials = Array.isArray(child.material) ? child.material : [child.material]
-        // The imported URDF has a few flipped/concave normals around the elbow
-        // shells. Keep the robot's palette unlit so those inner faces cannot
-        // catch a highlight and read as if they were glowing.
-        const upgraded = sourceMaterials.map(() => new THREE.MeshBasicMaterial({
-          color,
-          toneMapped: false,
-        }))
-        child.material = Array.isArray(child.material) ? upgraded : upgraded[0]
-      }
-    })
-
-    if (import.meta.env.DEV) {
-      ;(window as unknown as { __patchAssistRobot?: URDFRobot }).__patchAssistRobot = robot
+  const { position, quaternion } = useMemo(() => {
+    const point = targetWorld()
+    const normal = targetNormalWorld()
+    const zAxis = normal.clone().normalize()
+    const up = new THREE.Vector3(0, 1, 0)
+    const xAxis = new THREE.Vector3().crossVectors(up, zAxis).normalize()
+    const yAxis = new THREE.Vector3().crossVectors(zAxis, xAxis).normalize()
+    return {
+      position: point,
+      quaternion: new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis)),
     }
-    robotRef.current = robot
+  }, [])
 
-    return () => {
-      robotRef.current = null
-      if (import.meta.env.DEV) {
-        delete (window as unknown as { __patchAssistRobot?: URDFRobot }).__patchAssistRobot
-      }
+  useFrame((frame) => {
+    if (group.current) group.current.visible = state.contactBloom > 0.02
+    const load = THREE.MathUtils.clamp(state.contactForce / 4.4, 0, 1.2)
+    if (shaft.current) {
+      const length = 0.05 + load * 0.09
+      shaft.current.scale.y = length / 0.1
+      shaft.current.position.z = 0.035 + length / 2
     }
-  }, [robot, robotRef])
-
-  useFrame(() => {
-    robot.setJointValues(getInterpolatedPose(progress))
+    if (ring.current) {
+      const pulse = 1 + Math.sin(frame.clock.elapsedTime * 7) * 0.07
+      ring.current.scale.setScalar(pulse * (0.7 + load * 0.4))
+      ;(ring.current.material as THREE.MeshBasicMaterial).opacity = state.contactBloom * 0.7
+    }
   })
 
   return (
-    <group position={[0.05, 0.12, -0.12]} rotation-y={Math.PI / 2}>
-      <primitive object={robot} rotation-x={-Math.PI / 2} scale={1.62} />
+    <group ref={group} position={position.toArray()} quaternion={quaternion}>
+      <mesh ref={ring} position={[0, 0, 0.006]}>
+        <ringGeometry args={[0.052, 0.058, 48]} />
+        <meshBasicMaterial color={ACCENTS.force} transparent opacity={0} depthWrite={false} toneMapped={false} />
+      </mesh>
+      <mesh ref={shaft} position={[0, 0, 0.08]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.0035, 0.0035, 0.1, 10]} />
+        <meshBasicMaterial color={ACCENTS.force} toneMapped={false} />
+      </mesh>
+      <mesh position={[0, 0, 0.028]} rotation={[-Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.011, 0.024, 14]} />
+        <meshBasicMaterial color={ACCENTS.force} toneMapped={false} />
+      </mesh>
     </group>
   )
 }
 
-interface GripperSample {
-  base: THREE.Vector3
-  tip: THREE.Vector3
-  direction: THREE.Vector3
-}
-
-function sampleGripper(robot: URDFRobot, side: 'left' | 'right'): GripperSample | null {
-  const link = robot.links[`openarm_${side}_ee_base_link`]
-  if (!link) return null
-  const base = link.localToWorld(new THREE.Vector3(0, 0, 0))
-  const tip = link.localToWorld(new THREE.Vector3(0, 0, -0.075))
-  return { base, tip, direction: tip.clone().sub(base).normalize() }
-}
-
-function patchQuaternion(leftGrip: GripperSample, rightGrip: GripperSample) {
-  const xAxis = rightGrip.tip.clone().sub(leftGrip.tip).normalize()
-  const normal = leftGrip.direction.clone().add(rightGrip.direction).normalize()
-  const zAxis = xAxis.clone().cross(normal).normalize()
-  const yAxis = zAxis.clone().cross(xAxis).normalize()
-  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, yAxis, zAxis))
-}
-
-function TreatmentPatch({ progress, robotRef }: RobotProps) {
-  const patch = useRef<THREE.Group>(null)
-  const film = useRef<THREE.Group>(null)
-  const scanRing = useRef<THREE.Mesh>(null)
-  const start = useMemo(() => new THREE.Vector3(0.05, 0.617, 0.315), [])
-  const filmStart = useMemo(() => new THREE.Vector3(0.05, 0.628, 0.315), [])
-  const applied = useMemo(() => new THREE.Vector3(0.05, 0.92, 0.591), [])
-  const appliedRotation = useMemo(() => new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0)), [])
-
-  useFrame((state) => {
-    const robot = robotRef.current
-    if (robot) {
-      robot.updateMatrixWorld(true)
-      const leftGrip = sampleGripper(robot, 'left')
-      const rightGrip = sampleGripper(robot, 'right')
-      if (leftGrip && rightGrip) {
-        if (patch.current) {
-          if (progress < 0.52) {
-            patch.current.position.copy(start)
-            patch.current.quaternion.identity()
-            patch.current.scale.set(1, 1, 1)
-          } else if (progress < 0.94) {
-            patch.current.position.copy(leftGrip.tip).lerp(rightGrip.tip, 0.5)
-            patch.current.quaternion.copy(patchQuaternion(leftGrip, rightGrip))
-            const gripSpan = leftGrip.tip.distanceTo(rightGrip.tip)
-            patch.current.scale.set(THREE.MathUtils.clamp(gripSpan / 0.3, 0.9, 1.07), 1, 1)
-          } else {
-            patch.current.position.copy(applied)
-            patch.current.quaternion.copy(appliedRotation)
-            patch.current.scale.set(1, 1, 1)
-          }
-        }
-        if (film.current) {
-          const peel = smootherStep(range(progress, 0.3, 0.47))
-          film.current.visible = progress < 0.5
-          const heldPosition = rightGrip.tip.clone().add(new THREE.Vector3(-0.105, 0.008, 0))
-          film.current.position.copy(filmStart).lerp(heldPosition, peel)
-          film.current.rotation.set(-peel * 0.48, peel * 0.18, -peel * 0.72)
-        }
-      }
-    }
-    if (scanRing.current) {
-      const pulse = 1 + Math.sin(state.clock.elapsedTime * 3.2) * 0.08
-      scanRing.current.scale.setScalar(pulse)
-      ;(scanRing.current.material as THREE.MeshBasicMaterial).opacity = progress < 0.23 ? 0.5 : 0
-    }
-  })
-
-  return (
-    <>
-      <group ref={patch} name="treatment-patch" position={start.toArray()}>
-        <mesh castShadow>
-          <boxGeometry args={[0.3, 0.014, 0.18]} />
-          <meshBasicMaterial color="#8cc77c" toneMapped={false} />
-        </mesh>
-        <mesh position={[0, 0.008, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.24, 0.12]} />
-          <meshBasicMaterial color="#dff0d8" transparent opacity={0.34} />
-        </mesh>
-      </group>
-
-      <group ref={film} position={filmStart.toArray()}>
-        <mesh castShadow>
-          <boxGeometry args={[0.3, 0.008, 0.18]} />
-          <meshBasicMaterial color="#dce9df" transparent opacity={0.72} toneMapped={false} />
-        </mesh>
-        <mesh position={[0.08, 0.015, -0.07]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.08, 0.025]} />
-          <meshBasicMaterial color="#2c4b3d" transparent opacity={0.55} />
-        </mesh>
-      </group>
-
-      <mesh ref={scanRing} position={[0.05, 0.604, 0.315]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.2, 0.205, 64]} />
-        <meshBasicMaterial color="#ff6b45" transparent opacity={0.5} depthWrite={false} />
-      </mesh>
-    </>
-  )
-}
-
-function SkinTarget({ progress }: { progress: number }) {
-  const contact = useRef<THREE.Mesh>(null)
-  useFrame((state) => {
-    if (!contact.current) return
-    const visible = range(progress, 0.75, 0.92)
-    const pulse = 1 + Math.sin(state.clock.elapsedTime * 5) * 0.1
-    contact.current.scale.setScalar(pulse)
-    ;(contact.current.material as THREE.MeshBasicMaterial).opacity = visible * 0.42
-  })
-
-  return (
-    <group name="skin-target" position={[0.05, 1.05, 0.62]}>
-      <mesh name="skin-board" castShadow receiveShadow>
-        <boxGeometry args={[0.56, 0.48, 0.045]} />
-        <meshBasicMaterial color="#a96649" toneMapped={false} />
-      </mesh>
-      <mesh position={[0, 0, -0.023]} rotation={[0, Math.PI, 0]}>
-        <planeGeometry args={[0.5, 0.42]} />
-        <meshBasicMaterial color="#c68768" toneMapped={false} polygonOffset polygonOffsetFactor={-1} />
-      </mesh>
-      <mesh position={[0, -0.13, -0.024]} rotation={[0, Math.PI, 0]}>
-        <circleGeometry args={[0.155, 64]} />
-        <meshBasicMaterial color="#8e5d4e" transparent opacity={0.08} />
-      </mesh>
-      <mesh ref={contact} position={[0, -0.13, -0.025]} rotation={[0, Math.PI, 0]}>
-        <ringGeometry args={[0.17, 0.185, 64]} />
-        <meshBasicMaterial color="#ff6b45" transparent opacity={0} depthWrite={false} />
-      </mesh>
-      <group>
-        <mesh position={[0, -0.67, -0.02]} castShadow>
-          <cylinderGeometry args={[0.035, 0.045, 0.74, 24]} />
-          <meshBasicMaterial color="#505a54" toneMapped={false} />
-        </mesh>
-        <mesh position={[0, -1.02, -0.02]} castShadow>
-          <cylinderGeometry args={[0.18, 0.23, 0.025, 36]} />
-          <meshBasicMaterial color="#59635d" toneMapped={false} />
-        </mesh>
-      </group>
-      <Html position={[-0.27, 0.4, -0.04]} rotation={[0, Math.PI, 0]} transform distanceFactor={2.1} style={{ pointerEvents: 'none' }}>
-        <div className="three-label"><i />SKIN SIMULANT / BACK</div>
-      </Html>
-    </group>
-  )
-}
-
-function LabEnvironment() {
-  return (
-    <>
-      <Grid
-        position={[0, 0.012, 0]}
-        args={[8, 8]}
-        cellSize={0.22}
-        cellThickness={0.5}
-        cellColor="#aeb3ac"
-        sectionSize={1.1}
-        sectionThickness={0.8}
-        sectionColor="#969d95"
-        fadeDistance={5.5}
-        fadeStrength={1.3}
-        infiniteGrid
-      />
-
-      <group position={[0.05, 0.5, 0.3]}>
-        <RoundedBox args={[0.82, 0.06, 0.58]} radius={0.024} smoothness={4} castShadow receiveShadow>
-          <meshBasicMaterial color="#b8b5ab" toneMapped={false} />
-        </RoundedBox>
-        {[[-0.34, -0.25, -0.23], [0.34, -0.25, -0.23], [-0.34, -0.25, 0.23], [0.34, -0.25, 0.23]].map((position, index) => (
-          <mesh key={index} position={position as [number, number, number]} castShadow>
-            <cylinderGeometry args={[0.025, 0.03, 0.5, 16]} />
-            <meshBasicMaterial color="#555e58" toneMapped={false} />
-          </mesh>
-        ))}
-        <RoundedBox args={[0.4, 0.04, 0.28]} radius={0.016} smoothness={3} position={[0, 0.075, 0.015]} receiveShadow>
-          <meshBasicMaterial color="#929c94" toneMapped={false} />
-        </RoundedBox>
-      </group>
-
-      <mesh position={[0, 1.2, -1.28]} receiveShadow>
-        <planeGeometry args={[6, 2.6]} />
-        <meshBasicMaterial color="#d0d2cb" toneMapped={false} />
-      </mesh>
-      <mesh position={[-2.2, 1.1, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
-        <planeGeometry args={[5, 2.4]} />
-        <meshBasicMaterial color="#d9dbd4" toneMapped={false} />
-      </mesh>
-    </>
-  )
-}
-
-function CameraRig({ mode, progress }: { mode: CameraMode; progress: number }) {
+/**
+ * Drives the framing per stage, but hands control to the viewer the moment they
+ * drag; the automatic framing resumes when the stage or the view mode changes.
+ */
+function CameraRig({ state, mode, playing }: { state: DemoState; mode: CameraMode; playing: boolean }) {
   const { camera } = useThree()
-  const moving = useRef(true)
-  const stage = progress < 0.58 ? 'pickup' : 'apply'
-  const target = stage === 'pickup'
-    ? new THREE.Vector3(0.05, 0.66, 0.27)
-    : new THREE.Vector3(0.05, 0.9, 0.59)
-  const destination = mode === 'overview'
-    ? stage === 'pickup' ? new THREE.Vector3(2.9, 1.25, 2.5) : new THREE.Vector3(2.75, 1.45, -2.35)
-    : stage === 'pickup' ? new THREE.Vector3(1.75, 0.93, 1.45) : new THREE.Vector3(2.05, 1.12, -1.65)
+  const size = useThree((instance) => instance.size)
+  const controls = useThree((instance) => instance.controls) as unknown as
+    | {
+        target: THREE.Vector3
+        update: () => void
+        addEventListener: (type: string, listener: () => void) => void
+        removeEventListener: (type: string, listener: () => void) => void
+      }
+    | null
+  const desired = useMemo(() => new THREE.Vector3(), [])
+  const look = useMemo(() => new THREE.Vector3(), [])
+  const manual = useRef(false)
+  const stageId = state.stage.id
 
   useEffect(() => {
-    moving.current = true
-  }, [mode, stage])
+    manual.current = false
+  }, [stageId, mode])
+
+  useEffect(() => {
+    if (!controls) return
+    const onStart = () => {
+      manual.current = true
+    }
+    controls.addEventListener('start', onStart)
+    return () => controls.removeEventListener('start', onStart)
+  }, [controls])
 
   useFrame(() => {
-    if (!moving.current) return
-    camera.position.lerp(destination, 0.065)
-    camera.lookAt(target)
-    if (camera.position.distanceTo(destination) < 0.012) moving.current = false
+    if (manual.current) return
+    const frame = mode === 'wide' ? WIDE : FRAMING[stageId]
+    desired.set(...frame.camera)
+    look.set(...frame.target)
+    desired.sub(look).multiplyScalar(aspectPull(size.width / size.height)).add(look)
+    // Smooth while the sequence plays; snap when the viewer scrubs or jumps to
+    // a stage, so a paused frame is always the intended framing.
+    const blend = playing ? 0.045 : 1
+    camera.position.lerp(desired, blend)
+    if (controls) {
+      controls.target.lerp(look, playing ? 0.06 : 1)
+      controls.update()
+    } else {
+      camera.lookAt(look)
+    }
   })
+
+  return null
+}
+
+/**
+ * Studio surroundings for the standard materials to reflect. three builds the
+ * room procedurally, so this costs no network fetch — and without it the black
+ * machine has no specular at all and reads as a flat silhouette.
+ */
+function StudioEnvironment({ intensity }: { intensity: number }) {
+  const gl = useThree((instance) => instance.gl)
+  const scene = useThree((instance) => instance.scene)
+
+  useEffect(() => {
+    const generator = new THREE.PMREMGenerator(gl)
+    const room = new RoomEnvironment()
+    const target = generator.fromScene(room, 0.04)
+    scene.environment = target.texture
+    scene.environmentIntensity = intensity
+    return () => {
+      scene.environment = null
+      target.dispose()
+      generator.dispose()
+      room.dispose()
+    }
+  }, [gl, scene, intensity])
 
   return null
 }
@@ -444,47 +211,145 @@ export function SceneLoader() {
   return (
     <Html center>
       <div className="scene-loader" role="status">
-        <span className="loader-mark"><i /><i /></span>
-        <strong>OpenArm 2.0を準備中</strong>
+        <span className="loader-mark">
+          <i />
+          <i />
+        </span>
+        <strong>OpenArm 2.0 を読み込み中</strong>
         <small>{Math.round(progress)}%</small>
       </div>
     </Html>
   )
 }
 
-export function PatchAssistScene({ progress, cameraMode }: PatchAssistSceneProps) {
-  const robotRef = useRef<URDFRobot | null>(null)
+export function PatchAssistScene({
+  state,
+  cameraMode,
+  playing,
+}: {
+  state: DemoState
+  cameraMode: CameraMode
+  playing: boolean
+}) {
+  const wristTag = useMemo(() => {
+    const point = targetWorld().addScaledVector(targetNormalWorld(), 0.2)
+    return [point.x, point.y + 0.06, point.z] as [number, number, number]
+  }, [])
+
+  // The consumables the arms handle are parented to the cups themselves, so
+  // the rig has to hand its tool control points back up to the scene.
+  const [cups, setCups] = useState<Cups>({})
+  const handleCup = useCallback((side: 'left' | 'right', cup: THREE.Object3D | null) => {
+    setCups((current) => (current[side] === (cup ?? undefined) ? current : { ...current, [side]: cup ?? undefined }))
+  }, [])
+
+  // There is no floor for the contact shadow to sit on, so its offscreen pass
+  // has to clear to fully transparent; otherwise the unshadowed part of its
+  // plane reads as a grey slab hanging under the scene.
+  const gl = useThree((instance) => instance.gl)
+  useEffect(() => {
+    gl.setClearAlpha(0)
+  }, [gl])
+
+  // OrbitControls claims every touch gesture by setting touch-action: none,
+  // which on a phone turns the canvas into a scroll trap. Hand vertical swipes
+  // back to the page: horizontal drags still orbit, two fingers still pan/zoom.
+  const controls = useThree((instance) => instance.controls)
+  useEffect(() => {
+    if (controls) gl.domElement.style.touchAction = 'pan-y'
+  }, [gl, controls])
+
+  const stage = state.stage.id
+  const tagOpacity = (id: StageId) => (stage === id ? 1 : 0)
 
   return (
     <>
-      <fog attach="fog" args={['#d2d4cd', 4.6, 8.5]} />
-      <ambientLight intensity={0.72} color="#f4f1e8" />
+      <color attach="background" args={['#e8e8e1']} />
+      {/* far enough out that the pulled-back portrait framing stays unfogged */}
+      <fog attach="fog" args={['#e8e8e1', 7, 16]} />
+      {/* The room map carries the soft fill, so the lights can stay directional
+          and keep a real key-to-fill ratio instead of flattening everything. */}
+      <StudioEnvironment intensity={0.75} />
+      <ambientLight intensity={0.12} color="#f6f4ea" />
+      <hemisphereLight args={['#fffdf5', '#b6bbae', 0.5]} />
       <directionalLight
-        position={[4.5, 6, 4]}
-        intensity={1.45}
-        color="#fffaf0"
+        position={[2.6, 4.2, 2.2]}
+        intensity={2.1}
+        color="#fff8ec"
         castShadow
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
+        shadow-normalBias={0.012}
+        // tight frustum: the whole cell is ~1.4 m across, so the map spends its
+        // texels on the scene instead of on empty floor, and the edges stay crisp
+        shadow-camera-left={-1.3}
+        shadow-camera-right={1.3}
+        shadow-camera-top={1.6}
+        shadow-camera-bottom={-1.3}
+        shadow-camera-near={1.5}
+        shadow-camera-far={8}
       />
-      <LabEnvironment />
-      <OpenArmRobot progress={progress} robotRef={robotRef} />
-      <TreatmentPatch progress={progress} robotRef={robotRef} />
-      <SkinTarget progress={progress} />
+      {/* fill from the far side, so the shadowed flank of the robot stays readable */}
+      <directionalLight position={[-2.8, 2.2, -1.4]} intensity={0.34} color="#e6eef5" />
+      <directionalLight position={[-0.4, 1.4, 3.4]} intensity={0.22} color="#fff4e8" />
 
-      <ContactShadows position={[0, 0.02, 0]} opacity={0.28} scale={5.5} blur={2.5} far={3.2} />
-      <CameraRig mode={cameraMode} progress={progress} />
+      {/* the rig solves first, so anything reading a cup pose is a frame current */}
+      <OpenArmRig state={state} accents={ACCENTS} onCup={handleCup} />
+      <Workstation state={state} accents={ACCENTS} cups={cups} />
+      <Patient state={state} accents={ACCENTS} />
+      <ForceProbe state={state} />
+
+      <SceneTag
+        position={[0.13, 1.2, 0.13]}
+        label="RealSense D435f"
+        detail="胸部搭載 / 深度 87°×58°"
+        accent={ACCENTS.scan}
+        opacity={tagOpacity('scan')}
+      />
+      <SceneTag
+        position={[targetWorld().x - 0.02, targetWorld().y + 0.11, targetWorld().z - 0.06]}
+        label="貼付点を確定"
+        detail="指先ランドマーク #8"
+        accent={ACCENTS.intent}
+        opacity={tagOpacity('intent')}
+      />
+      <SceneTag
+        position={[-0.24, 0.9, 0.3]}
+        label="ポンプ A / 固定"
+        detail="湿布を押さえる"
+        accent={ACCENTS.force}
+        opacity={tagOpacity('peel')}
+      />
+      <SceneTag
+        position={[0.26, 0.94, 0.28]}
+        label="ポンプ B / 揺動"
+        detail="フィルムを剥がす"
+        accent={ACCENTS.vac}
+        opacity={tagOpacity('peel')}
+      />
+      <SceneTag
+        position={wristTag}
+        label="6軸力覚センサ"
+        detail={`Fz ${state.contactForce.toFixed(1)} N`}
+        accent={ACCENTS.force}
+        opacity={state.progress > APPLY.approach - 0.02 ? 1 : 0}
+      />
+
+      {/* tighter and darker than a soft AO puddle: it is what glues the cart to
+          the floor now that there is no floor plane to catch the key light */}
+      <ContactShadows position={[0, 0.008, 0]} opacity={0.5} scale={3.4} blur={1.5} far={1.6} resolution={1024} />
       <OrbitControls
         makeDefault
-        target={progress < 0.58 ? [0.05, 0.66, 0.27] : [0.05, 0.9, 0.59]}
-        minDistance={1.45}
-        maxDistance={6}
-        minPolarAngle={0.55}
-        maxPolarAngle={Math.PI / 2.05}
-        enablePan={false}
+        enablePan
+        screenSpacePanning
         enableDamping
-        dampingFactor={0.07}
+        dampingFactor={0.08}
+        minDistance={0.75}
+        maxDistance={7}
+        minPolarAngle={0.35}
+        maxPolarAngle={Math.PI / 2.06}
       />
+      <CameraRig state={state} mode={cameraMode} playing={playing} />
     </>
   )
 }

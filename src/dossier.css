@@ -1,0 +1,1093 @@
+/* ==================================================================
+   Dossier — 技術ドシエセクション専用スタイル
+   すべてのクラスは dsr- 接頭辞。グローバル要素セレクタは使わない。
+   デザイントークン（--ink / --surface / --scan …）は styles.css の
+   :root 定義を参照するだけで、ここでは再定義しない。
+   下の --dsr-* はトークンへのローカル別名（未定義時のフォールバック付き）。
+   ================================================================== */
+
+.dsr-root {
+  /* 工程ごとの色分けはやめ、面・影・角丸も落とす。
+     文字はすべて黒で、区別は級数・ウェイト・字送りと罫で付ける。 */
+  --dsr-ink: #000000;
+  --dsr-ink2: #000000;
+  --dsr-muted: #000000;
+  --dsr-line: #e5e7eb;
+  --dsr-line-2: #d1d5db;
+  --dsr-paper: #ffffff;
+  --dsr-surface: #ffffff;
+  --dsr-green: #000000;
+  --dsr-mint: #9ca3af;
+  --dsr-scan: #000000;
+  --dsr-intent: #000000;
+  --dsr-vac: #000000;
+  --dsr-force: #000000;
+  --dsr-mono: var(--mono, ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace);
+  --dsr-display: var(--font-display, "Orbitron", "Noto Sans JP", sans-serif);
+
+  --dsr-scan-ink: #000000;
+  --dsr-intent-ink: #000000;
+  --dsr-vac-ink: #000000;
+  --dsr-force-ink: #000000;
+  --dsr-green-ink: #000000;
+
+  --dsr-radius: 0;
+  --dsr-shadow: none;
+
+  position: relative;
+  z-index: 10;
+  color: var(--dsr-ink2);
+  background: var(--dsr-paper);
+  font-feature-settings: "palt" 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- アクセントのスコープ -------------------------------------------- */
+
+.dsr-a-scan {
+  --dsr-accent: var(--dsr-scan);
+  --dsr-accent-ink: var(--dsr-scan-ink);
+}
+.dsr-a-intent {
+  --dsr-accent: var(--dsr-intent);
+  --dsr-accent-ink: var(--dsr-intent-ink);
+}
+.dsr-a-vac {
+  --dsr-accent: var(--dsr-vac);
+  --dsr-accent-ink: var(--dsr-vac-ink);
+}
+.dsr-a-force {
+  --dsr-accent: var(--dsr-force);
+  --dsr-accent-ink: var(--dsr-force-ink);
+}
+.dsr-a-green {
+  --dsr-accent: var(--dsr-green);
+  --dsr-accent-ink: var(--dsr-green-ink);
+}
+
+/* --- セクションの骨格 ------------------------------------------------ */
+
+.dsr-section {
+  border-top: 1px solid var(--dsr-line);
+  padding-block: calc(var(--main-py, 3rem) * 1.5);
+}
+
+.dsr-inner {
+  max-width: none;
+  margin: 0 auto;
+  padding-inline: var(--pad-x, 2rem);
+}
+
+.dsr-head {
+  max-width: 780px;
+  margin: 0 0 40px;
+}
+
+.dsr-h2 {
+  margin: 0 0 16px;
+  font-size: clamp(1.35rem, 1.6vw + 0.85rem, 2.35rem);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.06em;
+  color: var(--dsr-ink);
+}
+
+.dsr-lead {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.95;
+  color: var(--dsr-ink2);
+}
+
+.dsr-mono {
+  font-family: var(--dsr-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "palt" 0;
+  letter-spacing: 0;
+}
+
+.dsr-sup {
+  font-family: var(--dsr-mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 0;
+  margin-left: 2px;
+  vertical-align: super;
+}
+
+.dsr-sup a {
+  color: var(--dsr-muted);
+  text-decoration: none;
+  border-bottom: 0;
+}
+
+.dsr-sup a:hover {
+  color: var(--dsr-green);
+}
+
+/* ==================================================================
+   A. システム構成図
+   ================================================================== */
+
+.dsr-arch-wrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--dsr-surface);
+  border: 1px solid var(--dsr-line);
+  border-radius: var(--dsr-radius);
+  box-shadow: var(--dsr-shadow);
+  padding: 24px 20px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dsr-arch-svg {
+  display: block;
+  width: 100%;
+  /* 全幅の節に置いても図だけは伸ばしきらない。
+     広い画面で字面が本文より大きくなるのを避ける。 */
+  max-width: 1240px;
+  margin-inline: auto;
+  height: auto;
+  min-width: 980px;
+}
+
+.dsr-figcaption {
+  margin: 16px 0 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--dsr-muted);
+}
+
+/* SVG 内タイポグラフィ */
+
+.dsr-slabel {
+  fill: var(--dsr-accent-ink);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.dsr-srule {
+  stroke: var(--dsr-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+.dsr-n {
+  fill: var(--dsr-surface);
+  stroke: var(--dsr-accent);
+  stroke-opacity: 0.42;
+  stroke-width: 1;
+}
+
+.dsr-n-k {
+  fill: var(--dsr-accent-ink);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.dsr-n-t {
+  fill: var(--dsr-ink);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.dsr-n-s {
+  fill: var(--dsr-muted);
+  font-family: var(--dsr-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dsr-arrow {
+  fill: none;
+  stroke: var(--dsr-accent);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  opacity: 0.75;
+}
+
+.dsr-mk--scan {
+  fill: var(--dsr-scan);
+}
+.dsr-mk--intent {
+  fill: var(--dsr-intent);
+}
+.dsr-mk--green {
+  fill: var(--dsr-green);
+}
+.dsr-mk--vac {
+  fill: var(--dsr-vac);
+}
+.dsr-mk--force {
+  fill: var(--dsr-force);
+}
+
+.dsr-bar {
+  fill: var(--dsr-green);
+  fill-opacity: 0.05;
+  stroke: var(--dsr-green);
+  stroke-opacity: 0.4;
+  stroke-width: 1;
+}
+
+.dsr-bar-t {
+  fill: var(--dsr-ink);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.dsr-bar-v {
+  fill: var(--dsr-muted);
+  font-family: var(--dsr-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dsr-gbox {
+  fill: var(--dsr-surface);
+  stroke: var(--dsr-accent);
+  stroke-opacity: 0.42;
+  stroke-width: 1;
+}
+
+.dsr-g-k {
+  fill: var(--dsr-accent-ink);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.dsr-g-t {
+  fill: var(--dsr-ink);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.dsr-g-f {
+  fill: var(--dsr-muted);
+  font-size: 11.5px;
+}
+
+.dsr-chip-r {
+  fill: var(--dsr-accent);
+  fill-opacity: 0.07;
+  stroke: var(--dsr-accent);
+  stroke-opacity: 0.2;
+  stroke-width: 1;
+}
+
+.dsr-chip-t {
+  fill: var(--dsr-ink2);
+  font-size: 12.5px;
+}
+
+.dsr-chip-v {
+  fill: var(--dsr-muted);
+  font-family: var(--dsr-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dsr-term {
+  fill: var(--dsr-green);
+}
+
+.dsr-term-t {
+  fill: #ffffff;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ==================================================================
+   B. パイプライン（4 工程カード）
+   ================================================================== */
+
+.dsr-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.dsr-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--dsr-surface);
+  border: 1px solid var(--dsr-line);
+  border-radius: var(--dsr-radius);
+  box-shadow: var(--dsr-shadow);
+  padding: 28px 28px 26px;
+  overflow: hidden;
+}
+
+.dsr-card-rule {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--dsr-accent);
+}
+
+.dsr-card-top {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.dsr-card-num {
+  font-family: var(--dsr-mono);
+  font-size: 22px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--dsr-accent-ink);
+}
+
+.dsr-card-title {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  color: var(--dsr-ink);
+}
+
+.dsr-card-desc {
+  margin: 0 0 22px;
+  font-size: 16px;
+  line-height: 1.85;
+  color: var(--dsr-ink2);
+}
+
+.dsr-spec-label {
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--dsr-line);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--dsr-muted);
+}
+
+.dsr-spec {
+  margin: 0 0 20px;
+}
+
+.dsr-spec-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 34%) 1fr;
+  gap: 8px 16px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--dsr-line);
+}
+
+.dsr-spec-row:last-child {
+  border-bottom: 0;
+}
+
+.dsr-spec-k {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--dsr-muted);
+}
+
+.dsr-spec-v {
+  margin: 0;
+  font-family: var(--dsr-mono);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+  line-height: 1.6;
+  color: var(--dsr-ink);
+}
+
+.dsr-check {
+  margin: auto 0 0;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--dsr-paper);
+  border: 1px solid var(--dsr-line);
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--dsr-ink2);
+}
+
+.dsr-check-label {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--dsr-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--dsr-accent-ink);
+}
+
+/* ==================================================================
+   C / D. 表
+   ================================================================== */
+
+.dsr-tablewrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--dsr-surface);
+  border: 1px solid var(--dsr-line);
+  border-radius: var(--dsr-radius);
+  box-shadow: var(--dsr-shadow);
+}
+
+.dsr-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: left;
+}
+
+.dsr-table--bom {
+  min-width: 940px;
+}
+
+.dsr-table thead th {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--dsr-line);
+  font-family: var(--dsr-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dsr-muted);
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.dsr-table tbody th,
+.dsr-table tbody td {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--dsr-line);
+  font-size: 14.5px;
+  line-height: 1.7;
+  vertical-align: top;
+  font-weight: 400;
+}
+
+.dsr-table tbody tr:last-child th,
+.dsr-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.dsr-td-part {
+  width: 15%;
+  min-width: 150px;
+  font-weight: 600;
+  color: var(--dsr-ink);
+}
+
+.dsr-td-model {
+  width: 20%;
+  min-width: 190px;
+  color: var(--dsr-ink);
+}
+
+.dsr-td-spec {
+  width: 34%;
+  min-width: 260px;
+  font-size: 14px;
+  color: var(--dsr-ink2);
+}
+
+.dsr-th-num,
+.dsr-td-price {
+  width: 16%;
+  min-width: 160px;
+  white-space: nowrap;
+}
+
+.dsr-td-price .dsr-mono {
+  font-size: 14.5px;
+  color: var(--dsr-ink);
+}
+
+.dsr-td-src {
+  width: 15%;
+  min-width: 150px;
+  font-size: 13.5px;
+}
+
+.dsr-td-src a {
+  color: var(--dsr-green);
+  text-decoration: none;
+  border-bottom: 1px solid var(--dsr-line);
+  word-break: break-word;
+}
+
+.dsr-td-src a:hover {
+  border-bottom-color: var(--dsr-green);
+}
+
+.dsr-src-none {
+  color: var(--dsr-muted);
+}
+
+.dsr-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-family: var(--dsr-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.5;
+  white-space: nowrap;
+  vertical-align: 1px;
+}
+
+.dsr-badge--est {
+  color: var(--dsr-muted);
+  background: transparent;
+  border: 1px solid var(--dsr-line-2);
+}
+
+.dsr-badge--rec {
+  color: #ffffff;
+  background: var(--dsr-green);
+  border: 1px solid var(--dsr-green);
+}
+
+/* 合計レンジ */
+
+.dsr-total {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) 1fr;
+  gap: 32px;
+  align-items: start;
+  margin-top: 20px;
+  padding: 26px 28px;
+  background: var(--dsr-surface);
+  border: 1px solid var(--dsr-line);
+  border-radius: var(--dsr-radius);
+  box-shadow: var(--dsr-shadow);
+}
+
+.dsr-total-label {
+  margin: 0 0 10px;
+  font-family: var(--dsr-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dsr-muted);
+}
+
+.dsr-total-value {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--dsr-mono);
+  font-size: 21px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.35;
+  color: var(--dsr-ink);
+}
+
+.dsr-total-plus {
+  font-size: 16px;
+  color: var(--dsr-muted);
+}
+
+.dsr-total-notes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 9px;
+}
+
+.dsr-total-notes li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--dsr-ink2);
+}
+
+.dsr-total-notes li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 6px;
+  height: 1px;
+  background: var(--dsr-muted);
+}
+
+/* ==================================================================
+   D. 比較テーブル
+   ================================================================== */
+
+.dsr-cmp {
+  min-width: 900px;
+  /* 3 案の列幅を必ず等分し、推奨列だけが痩せないようにする */
+  table-layout: fixed;
+}
+
+.dsr-cmp .dsr-cmp-axis {
+  width: 130px;
+  min-width: 130px;
+  font-family: var(--dsr-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--dsr-muted);
+  white-space: nowrap;
+  background: var(--dsr-paper);
+}
+
+.dsr-cmp thead .dsr-cmp-h {
+  width: calc((100% - 130px) / 3);
+  padding: 20px 18px 18px;
+  /* thead の等幅指定を打ち消し、案の名前は本文フォントで組む */
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  white-space: normal;
+  text-transform: none;
+  letter-spacing: 0;
+  vertical-align: top;
+}
+
+.dsr-cmp-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 21px; /* 推奨バッジの有無で見出しの高さがずれないように */
+  margin-bottom: 8px;
+  font-family: var(--dsr-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dsr-muted);
+}
+
+.dsr-cmp-name {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.45;
+  color: var(--dsr-ink);
+}
+
+.dsr-cmp-sub {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--dsr-muted);
+}
+
+.dsr-cmp tbody td {
+  font-size: 14px;
+  color: var(--dsr-ink2);
+}
+
+/* 推奨列のハイライト */
+.dsr-cmp .dsr-cmp-rec {
+  background: #f6f6f6;
+  box-shadow:
+    inset 1px 0 0 var(--dsr-green),
+    inset -1px 0 0 var(--dsr-green);
+  color: var(--dsr-ink);
+}
+
+.dsr-cmp thead .dsr-cmp-rec {
+  box-shadow:
+    inset 1px 0 0 var(--dsr-green),
+    inset -1px 0 0 var(--dsr-green),
+    inset 0 2px 0 var(--dsr-green);
+}
+
+.dsr-cmp tbody tr:last-child .dsr-cmp-rec {
+  box-shadow:
+    inset 1px 0 0 var(--dsr-green),
+    inset -1px 0 0 var(--dsr-green),
+    inset 0 -2px 0 var(--dsr-green);
+}
+
+.dsr-cmp thead .dsr-cmp-rec .dsr-cmp-tag {
+  color: var(--dsr-green);
+}
+
+/* 結論 */
+
+.dsr-why {
+  margin-top: 20px;
+  padding: 30px 32px;
+  background: var(--dsr-surface);
+  border: 1px solid var(--dsr-green);
+  border-radius: var(--dsr-radius);
+  box-shadow: var(--dsr-shadow);
+  border-left-width: 3px;
+}
+
+.dsr-why-label {
+  margin: 0 0 12px;
+  font-family: var(--dsr-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dsr-green);
+}
+
+.dsr-why-title {
+  margin: 0 0 14px;
+  max-width: 900px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.65;
+  letter-spacing: -0.01em;
+  color: var(--dsr-ink);
+}
+
+.dsr-why-body {
+  margin: 0;
+  max-width: 900px;
+  font-size: 16px;
+  line-height: 1.95;
+  color: var(--dsr-ink2);
+}
+
+/* ==================================================================
+   E. リスクと検証計画
+   ================================================================== */
+
+.dsr-risks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 16px;
+}
+
+.dsr-risk {
+  background: var(--dsr-surface);
+  border: 1px solid var(--dsr-line);
+  border-radius: var(--dsr-radius);
+  box-shadow: var(--dsr-shadow);
+  padding: 26px 28px;
+}
+
+.dsr-risk-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--dsr-line);
+}
+
+.dsr-risk-num {
+  font-family: var(--dsr-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--dsr-muted);
+}
+
+.dsr-risk-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  color: var(--dsr-ink);
+}
+
+.dsr-risk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.dsr-risk-label {
+  margin: 0 0 8px;
+  font-family: var(--dsr-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dsr-muted);
+}
+
+.dsr-risk-cell--next .dsr-risk-label {
+  color: var(--dsr-green);
+}
+
+.dsr-risk-text {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.85;
+  color: var(--dsr-ink2);
+}
+
+.dsr-risk-cell--next .dsr-risk-text {
+  color: var(--dsr-ink);
+}
+
+/* ==================================================================
+   F. 出典
+   ================================================================== */
+
+.dsr-refs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 40px;
+  border-top: 1px solid var(--dsr-line);
+}
+
+.dsr-ref-item {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 12px;
+  align-items: baseline;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--dsr-line);
+  scroll-margin-top: 80px;
+}
+
+.dsr-ref-num {
+  font-family: var(--dsr-mono);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsr-muted);
+}
+
+.dsr-ref-body {
+  display: block;
+  min-width: 0;
+}
+
+.dsr-ref-item a {
+  display: block;
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--dsr-ink);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.dsr-ref-item a:hover {
+  color: var(--dsr-green);
+  border-bottom-color: var(--dsr-line);
+}
+
+.dsr-ref-site {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--dsr-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--dsr-muted);
+  word-break: break-all;
+}
+
+.dsr-ref-item:target .dsr-ref-num,
+.dsr-ref-item:target a {
+  color: var(--dsr-green);
+}
+
+/* ==================================================================
+   レスポンシブ
+   ================================================================== */
+
+@media (max-width: 900px) {
+  .dsr-section {
+    padding: 56px 0;
+  }
+
+  .dsr-inner {
+    padding: 0 20px;
+  }
+
+  .dsr-head {
+    margin-bottom: 28px;
+  }
+
+  .dsr-arch-wrap {
+    padding: 16px;
+  }
+
+  .dsr-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dsr-card {
+    padding: 24px 22px;
+  }
+
+  .dsr-total {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+    padding: 22px;
+  }
+
+  .dsr-why {
+    padding: 24px 22px;
+  }
+
+  .dsr-risk {
+    padding: 22px;
+  }
+
+  .dsr-risk-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .dsr-risk-cell--next {
+    padding-top: 16px;
+    border-top: 1px solid var(--dsr-line);
+  }
+
+  .dsr-refs {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  /* 比較表は 3 案とも並べたいので横スクロールのまま。
+     ただし評価軸の列は貼り付けて、何の行を見ているか見失わせない。 */
+  .dsr-cmp .dsr-cmp-axis {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    box-shadow: 1px 0 0 var(--dsr-line);
+  }
+}
+
+@media (max-width: 620px) {
+  .dsr-section {
+    padding: 48px 0;
+  }
+
+  /* 構成表は 5 列のまま横スクロールさせると、見えている 2 列に対して
+     行がやたら高くなる。狭い画面では 1 部品 1 ブロックに積み替える。 */
+  .dsr-table--bom {
+    min-width: 0;
+  }
+
+  .dsr-table--bom thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .dsr-table--bom tbody tr {
+    display: block;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--dsr-line);
+  }
+
+  .dsr-table--bom tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .dsr-table--bom tbody th,
+  .dsr-table--bom tbody td {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .dsr-table--bom .dsr-td-part {
+    margin-bottom: 10px;
+    font-size: 16px;
+  }
+
+  .dsr-table--bom tbody td {
+    display: grid;
+    grid-template-columns: 5.5em minmax(0, 1fr);
+    gap: 2px 12px;
+    padding: 5px 0;
+  }
+
+  .dsr-table--bom tbody td::before {
+    content: attr(data-label);
+    font-family: var(--dsr-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    line-height: 1.8;
+  }
+
+  .dsr-table--bom .dsr-td-price,
+  .dsr-table--bom .dsr-td-src {
+    white-space: normal;
+  }
+
+  .dsr-lead {
+    font-size: 16px;
+  }
+
+  .dsr-card {
+    padding: 22px 18px;
+  }
+
+  .dsr-card-desc {
+    font-size: 15px;
+  }
+
+  .dsr-spec-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .dsr-total-value {
+    font-size: 19px;
+  }
+
+  .dsr-why {
+    padding: 22px 18px;
+  }
+
+  .dsr-why-title {
+    font-size: 18px;
+  }
+
+  .dsr-why-body {
+    font-size: 15px;
+  }
+
+  .dsr-risk {
+    padding: 20px 18px;
+  }
+
+  .dsr-risk-title {
+    font-size: 17px;
+  }
+
+  .dsr-ref-item {
+    grid-template-columns: 26px 1fr;
+    gap: 10px;
+  }
+}

@@ -1,75 +1,64 @@
 import { Canvas } from '@react-three/fiber'
+import { NeutralToneMapping } from 'three'
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { PatchAssistScene, SceneLoader } from './components/PatchAssistScene'
+import { ArrowUpRight, Check, List } from 'lucide-react'
+import ControlChart from './components/ControlChart'
+import Dossier from './components/Dossier'
+import ImageRevealBackground, { BG_IMAGE_STILL } from './components/ImageRevealBackground'
+import IndexDrawer from './components/IndexDrawer'
+import { BracketFrame, CornerBracket, GlobeWire } from './components/marks'
+import { type CameraMode, PatchAssistScene, SceneLoader } from './components/PatchAssistScene'
+import { DEMO_SECONDS, STAGES, demoState, telemetry } from './lib/sequence'
 import {
-  ArrowIcon,
   CameraIcon,
   CheckIcon,
   ExpandIcon,
-  InfoIcon,
   OrbitIcon,
   PauseIcon,
   PlayIcon,
   ResetIcon,
 } from './icons'
 
-const DEMO_SECONDS = 22
-
-const phases = [
-  {
-    id: '01',
-    start: 0,
-    label: '認識',
-    title: '湿布と貼付位置を認識',
-    description: 'RGB-Dカメラから柔軟物の輪郭と肌面を同時に推定します。',
-    technical: 'VLA perception',
-  },
-  {
-    id: '02',
-    start: 0.24,
-    label: '剥離',
-    title: '保護フィルムを両腕で剥離',
-    description: '左右のピンチグリッパーで張力を保ち、湿布の変形を抑えます。',
-    technical: 'Bimanual control',
-  },
-  {
-    id: '03',
-    start: 0.51,
-    label: '整列',
-    title: '貼付ポイントへ滑らかに移動',
-    description: '人との距離を監視しながら、安全な軌道をリアルタイム生成します。',
-    technical: 'Safe trajectory',
-  },
-  {
-    id: '04',
-    start: 0.76,
-    label: '圧着',
-    title: '力を制御しながら貼り付け',
-    description: '両端の接触力を監視し、肌面へ均一に圧着します。',
-    technical: 'Force control',
-  },
-]
-
-type CameraMode = 'overview' | 'detail'
-
-function getPhaseIndex(progress: number) {
-  for (let index = phases.length - 1; index >= 0; index -= 1) {
-    if (progress >= phases[index].start) return index
-  }
-  return 0
-}
-
 function formatTime(progress: number) {
   const seconds = Math.round(progress * DEMO_SECONDS)
-  return `00:${seconds.toString().padStart(2, '0')}`
+  return `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`
 }
 
-function LogoMark() {
+/** 3D はどの表示モードでも同じ設定で描く。撮影用の bare モードからも使う。 */
+function SceneCanvas({
+  state,
+  cameraMode,
+  playing,
+}: {
+  state: ReturnType<typeof demoState>
+  cameraMode: CameraMode
+  playing: boolean
+}) {
   return (
-    <div className="logo-mark" aria-hidden="true">
-      <span />
-      <span />
-    </div>
+    <Canvas
+      className="scene-canvas"
+      shadows
+      dpr={[1, 1.8]}
+      camera={{ position: [1.7, 1.7, 1.3], fov: 34, near: 0.05, far: 60 }}
+      gl={{
+        antialias: true,
+        alpha: false,
+        powerPreference: 'high-performance',
+        // Without a tone map the key light clips every lit surface to
+        // flat white; neutral keeps the highlights rolled off in hue.
+        toneMapping: NeutralToneMapping,
+        toneMappingExposure: 1.12,
+      }}
+      onCreated={(created) => {
+        if (import.meta.env.DEV) {
+          ; (window as unknown as { __three?: unknown }).__three = created
+        }
+      }}
+    >
+      <Suspense fallback={<SceneLoader />}>
+        <PatchAssistScene state={state} cameraMode={cameraMode} playing={playing} />
+      </Suspense>
+    </Canvas>
   )
 }
 
@@ -77,281 +66,403 @@ export default function App() {
   const [progress, setProgress] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [hasStarted, setHasStarted] = useState(false)
-  const [cameraMode, setCameraMode] = useState<CameraMode>('overview')
-  const [showAbout, setShowAbout] = useState(false)
-  const animationFrame = useRef<number | null>(null)
-  const previousTime = useRef<number | null>(null)
-  const phaseIndex = getPhaseIndex(progress)
+  const [cameraMode, setCameraMode] = useState<CameraMode>('follow')
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [bare, setBare] = useState(false)
+  const frame = useRef<number | null>(null)
+  const previous = useRef<number | null>(null)
+
+  const state = useMemo(() => demoState(progress), [progress])
+  const readout = useMemo(() => telemetry(state), [state])
   const completed = progress >= 0.999
 
   const reset = useCallback(() => {
     setProgress(0)
     setIsPlaying(false)
     setHasStarted(false)
-    setCameraMode('overview')
-    previousTime.current = null
+    previous.current = null
   }, [])
 
-  const togglePlayback = useCallback(() => {
-    if (progress >= 0.999) setProgress(0)
+  const toggle = useCallback(() => {
+    setProgress((value) => (value >= 0.999 ? 0 : value))
     setHasStarted(true)
     setIsPlaying((value) => !value)
-  }, [progress])
+  }, [])
+
+  const seek = useCallback((value: number) => {
+    setProgress(value)
+    setHasStarted(true)
+    setIsPlaying(false)
+  }, [])
+
+  const scrollToDemo = useCallback(() => {
+    document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
 
   useEffect(() => {
     if (!isPlaying) {
-      previousTime.current = null
-      if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current)
+      previous.current = null
+      if (frame.current !== null) cancelAnimationFrame(frame.current)
       return
     }
-
     const tick = (time: number) => {
-      if (previousTime.current === null) previousTime.current = time
-      const delta = Math.min((time - previousTime.current) / 1000, 0.5)
-      previousTime.current = time
+      if (previous.current === null) previous.current = time
+      const delta = Math.min((time - previous.current) / 1000, 0.4)
+      previous.current = time
       setProgress((current) => {
         const next = Math.min(1, current + delta / DEMO_SECONDS)
         if (next >= 1) setIsPlaying(false)
         return next
       })
-      animationFrame.current = requestAnimationFrame(tick)
+      frame.current = requestAnimationFrame(tick)
     }
-
-    animationFrame.current = requestAnimationFrame(tick)
+    frame.current = requestAnimationFrame(tick)
     return () => {
-      if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current)
+      if (frame.current !== null) cancelAnimationFrame(frame.current)
     }
   }, [isPlaying])
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+      ; (window as unknown as { __seek?: (value: number) => void }).__seek = (value: number) => {
+        setIsPlaying(false)
+        setHasStarted(true)
+        setProgress(Math.max(0, Math.min(1, value)))
+      }
+    // ?p=0.42 lets the screenshot harness park the sequence on any instant.
+    const params = new URLSearchParams(window.location.search)
+    const requested = params.get('p')
+    if (requested !== null) {
+      setHasStarted(true)
+      setProgress(Math.max(0, Math.min(1, Number(requested))))
+    }
+    if (params.get('view') === 'wide') setCameraMode('wide')
+    // ?bare=1 は 3D だけを全画面で出す。ヒーロー背景の 2 枚を撮るための状態。
+    if (params.get('bare') === '1') setBare(true)
+    const scroll = params.get('scroll')
+    if (scroll !== null) window.scrollTo({ top: Number(scroll), behavior: 'instant' as ScrollBehavior })
+  }, [])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLInputElement) return
       if (event.code === 'Space') {
         event.preventDefault()
-        togglePlayback()
+        toggle()
       }
       if (event.key.toLowerCase() === 'r') reset()
-      const phase = Number(event.key) - 1
-      if (phase >= 0 && phase < phases.length) {
-        setProgress(phases[phase].start)
-        setHasStarted(true)
-        setIsPlaying(false)
-      }
+      const index = Number(event.key) - 1
+      if (index >= 0 && index < STAGES.length) seek(STAGES[index].start + 0.001)
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [reset, togglePlayback])
-
-  const metrics = useMemo(() => {
-    const forceRamp = Math.min(1, Math.max(0, (progress - 0.78) / 0.1)) * 4.2
-    const release = Math.min(1, Math.max(0, (progress - 0.97) / 0.03))
-    const force = forceRamp * (1 - release) + 0.4 * release
-    const confidence = 96.4 + Math.sin(progress * 8) * 1.1
-    return {
-      force: force.toFixed(1),
-      confidence: confidence.toFixed(1),
-      latency: Math.round(42 + Math.sin(progress * 10) * 3),
-    }
-  }, [progress])
+  }, [reset, seek, toggle])
 
   const enterFullscreen = async () => {
-    if (!document.fullscreenElement) await document.documentElement.requestFullscreen()
-    else await document.exitFullscreen()
+    const target = document.querySelector('.simulator') as HTMLElement | null
+    try {
+      if (!document.fullscreenElement) await (target ?? document.documentElement).requestFullscreen()
+      else await document.exitFullscreen()
+    } catch {
+      // iOS Safari は要素の全画面化を持たない。押しても何も起きないだけにする。
+    }
+  }
+
+  if (bare) {
+    return (
+      <div className="bare-shot">
+        <SceneCanvas state={state} cameraMode={cameraMode} playing={false} />
+      </div>
+    )
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell font-jakarta">
+      <ImageRevealBackground />
+
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="PatchAssist ホーム">
-          <LogoMark />
-          <span className="brand-copy">
-            <strong>PatchAssist</strong>
-            <small>Physical AI prototype</small>
-          </span>
+        <a
+          className="brand font-orbitron"
+          href="#top"
+          aria-label="PatchAssist"
+          onClick={() => setDrawerOpen(false)}
+        >
+          PATCHASSIST
+          <span className="brand-deg">˚</span>
         </a>
 
-        <div className="header-meta">
-          <p className="header-statement"><span>背中に、</span>手が届く未来。</p>
-          <button className="about-button" type="button" onClick={() => setShowAbout(true)}>
-            <InfoIcon />
-            <span>プロジェクト概要</span>
+        <nav className="header-nav" aria-label="ページ内リンク">
+          <a href="#control-flow">制御</a>
+          <a href="#dsr-pipeline">工程</a>
+          <a href="#dsr-bom">構成</a>
+          <a href="#dsr-decision">力覚センサ</a>
+          <a href="#dsr-open-questions">検証計画</a>
+          <span className="header-divider" aria-hidden="true">
+            |
+          </span>
+          <button
+            type="button"
+            className="header-index"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="インデックスを開く"
+          >
+            <List strokeWidth={1.5} style={{ width: 'var(--icon)', height: 'var(--icon)' }} />
+            <span className="header-badge">{completed ? '04' : state.stage.number}</span>
           </button>
-        </div>
+        </nav>
       </header>
 
-      <main id="top" className="main-layout">
-        <section className="story-panel" aria-labelledby="hero-title">
-          <div className="story-intro">
-            <p className="eyebrow"><span>Challenge ATOM</span><span>Concept 01</span></p>
-            <h1 id="hero-title">「貼れない」を、<br /><em>ひとりでできる</em>へ。</h1>
-            <p className="lead">
-              背中への湿布貼付を、しなやかな双腕ロボットが支援する。
-              高齢者の自立と尊厳に寄り添うフィジカルAIです。
+      <main id="top">
+        {/* ---------------- ヒーロー：最初のビューポート ---------------- */}
+        <section className="hero" aria-label="PatchAssist">
+          <div className="hero-left">
+            <CornerBracket variant="tl" className="hero-bracket" />
+
+            <p className="hero-eyebrow font-orbitron">
+              <span>CHALLENGE ATOM</span>
+              <span>KYOTO</span>
             </p>
 
-            <div className="primary-actions">
-              <button className="primary-button" type="button" onClick={togglePlayback}>
-                {isPlaying ? <PauseIcon /> : <PlayIcon />}
-                {completed ? 'もう一度見る' : isPlaying ? '一時停止' : hasStarted ? 'デモを再開' : '3Dデモを開始'}
-                {!isPlaying && <ArrowIcon className="button-arrow" />}
+            <h1 className="hero-headline font-orbitron">
+              <span className="hero-line">背中の一枚を、</span>
+              <span className="hero-line">ひとりで</span>
+              <span className="hero-line">貼れるように。</span>
+            </h1>
+
+            <CornerBracket variant="bl" className="hero-bracket" />
+
+            <p className="hero-lead">
+              背中を3Dスキャンし、本人に貼りたい場所を指してもらう。
+              真空ポンプ2台でフィルムを剥がし、接触した力を見ながら圧着する。
+              4つの工程を、OpenArm 2.0の双腕でひと続きに実行します。
+            </p>
+
+            <div className="hero-actions">
+              <button
+                className="cta"
+                type="button"
+                onClick={() => {
+                  setProgress((value) => (value >= 0.999 ? 0 : value))
+                  setHasStarted(true)
+                  setIsPlaying(true)
+                  scrollToDemo()
+                }}
+              >
+                {completed ? 'もう一度再生' : hasStarted ? '再開' : '動作シーケンスを再生'}
+                <ArrowUpRight strokeWidth={1.5} className="cta-arrow" />
               </button>
-              <button className="reset-button" type="button" onClick={reset} disabled={!hasStarted && progress === 0}>
-                <ResetIcon />
-                リセット
+              <button className="cta-quiet" type="button" onClick={reset} disabled={!hasStarted && progress === 0}>
+                最初から
               </button>
             </div>
           </div>
 
-          <div className="phase-list" aria-label="デモの工程">
-            {phases.map((phase, index) => {
-              const isActive = index === phaseIndex && !completed
-              const isDone = progress > (phases[index + 1]?.start ?? 1) || completed
+          <div className="hero-feature">
+            <BracketFrame className="bracket-frame" />
+            <GlobeWire className="hero-globe" />
+            <p className="hero-tagline">
+              <span>PHYSICAL AI</span>
+              <span>湿布貼付支援</span>
+            </p>
+            <p className="hero-sim">
+              <i />
+              SIMULATION
+            </p>
+          </div>
+
+          {/* lg 未満はスポットライトを出さず、静止画を 1 枚だけ置く */}
+          <div className="hero-still lg:hidden">
+            <img src={BG_IMAGE_STILL} alt="OpenArm 2.0 の双腕が湿布を背中に圧着している様子" loading="lazy" />
+          </div>
+        </section>
+
+        {/* ---------------- 動作シミュレーション ---------------- */}
+        <section className="demo" id="demo" aria-label="PatchAssist 動作シミュレーション">
+          <div className="demo-head">
+            <h2 className="demo-title">動作シーケンス</h2>
+            <p className="demo-time">
+              {formatTime(progress)} / {formatTime(1)}
+            </p>
+          </div>
+
+          <ol className="stage-rail" aria-label="工程">
+            {STAGES.map((item) => {
+              const isActive = item.id === state.stage.id
+              const isDone = progress > item.end - 0.001
               return (
-                <button
-                  type="button"
-                  className={`phase-row ${isActive ? 'is-active' : ''} ${isDone ? 'is-done' : ''}`}
-                  key={phase.id}
-                  onClick={() => {
-                    setProgress(phase.start)
-                    setHasStarted(true)
-                    setIsPlaying(false)
-                  }}
-                  aria-current={isActive ? 'step' : undefined}
-                >
-                  <span className="phase-index">{isDone ? <CheckIcon /> : phase.id}</span>
-                  <span className="phase-copy">
-                    <small>{phase.label} / {phase.technical}</small>
-                    <strong>{phase.title}</strong>
-                  </span>
-                  <span className="phase-dot" />
-                </button>
+                <li key={item.id}>
+                  <button
+                    type="button"
+                    className={`stage-row${isActive ? ' is-active' : ''}${isDone ? ' is-done' : ''}`}
+                    onClick={() => seek(item.start + 0.001)}
+                    aria-current={isActive ? 'step' : undefined}
+                  >
+                    <span className="stage-num">{isDone ? <CheckIcon /> : item.number}</span>
+                    <span className="stage-copy">
+                      <strong>{item.title}</strong>
+                      <em>{item.method}</em>
+                    </span>
+                  </button>
+                </li>
               )
             })}
-          </div>
+          </ol>
 
-          <div className="story-footnote">
-            <span>OpenArm 2.0</span>
-            <span>7DoF × 2</span>
-            <span>VLA control</span>
-          </div>
-        </section>
+          <div className="simulator">
+            <BracketFrame className="bracket-frame bracket-frame--sim" />
+            <SceneCanvas state={state} cameraMode={cameraMode} playing={isPlaying} />
 
-        <section className="simulator-panel" aria-label="PatchAssist 3Dシミュレーション">
-          <Canvas
-            className="scene-canvas"
-            shadows
-            dpr={[1, 1.75]}
-            camera={{ position: [2.9, 1.25, 2.5], fov: 38, near: 0.05, far: 100 }}
-            gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }}
-            onCreated={({ gl }) => {
-              gl.setClearColor('#d2d4cd')
-              gl.toneMappingExposure = 0.92
-            }}
-          >
-            <Suspense fallback={<SceneLoader />}>
-              <PatchAssistScene progress={progress} cameraMode={cameraMode} />
-            </Suspense>
-          </Canvas>
-
-          <div className="scene-topbar">
-            <div className="scene-title">
-              <span>Simulation / Home care cell</span>
-              <strong>{completed ? '貼付完了' : phases[phaseIndex].title}</strong>
-            </div>
-            <div className="scene-tools" aria-label="ビュー操作">
-              <div className="segmented-control">
-                <button
-                  className={cameraMode === 'overview' ? 'is-selected' : ''}
-                  type="button"
-                  onClick={() => setCameraMode('overview')}
-                  aria-label="全体ビュー"
-                  title="全体ビュー"
-                ><OrbitIcon /></button>
-                <button
-                  className={cameraMode === 'detail' ? 'is-selected' : ''}
-                  type="button"
-                  onClick={() => setCameraMode('detail')}
-                  aria-label="接触部クローズアップ"
-                  title="接触部クローズアップ"
-                ><CameraIcon /></button>
+            <div className="scene-topbar">
+              <div className="scene-title">
+                <span>工程 {state.stage.number}</span>
+                <strong>{completed ? '貼付完了' : state.stage.title}</strong>
               </div>
-              <button className="scene-tool-button" type="button" onClick={enterFullscreen} aria-label="全画面表示">
-                <ExpandIcon />
+              <div className="scene-tools">
+                <div className="segmented">
+                  <button
+                    type="button"
+                    className={cameraMode === 'follow' ? 'is-selected' : ''}
+                    onClick={() => setCameraMode('follow')}
+                    title="工程に追従"
+                    aria-label="工程に追従するカメラ"
+                  >
+                    <CameraIcon />
+                  </button>
+                  <button
+                    type="button"
+                    className={cameraMode === 'wide' ? 'is-selected' : ''}
+                    onClick={() => setCameraMode('wide')}
+                    title="全体を見る"
+                    aria-label="全体ビュー"
+                  >
+                    <OrbitIcon />
+                  </button>
+                </div>
+                <button className="icon-button" type="button" onClick={enterFullscreen} aria-label="全画面表示">
+                  <ExpandIcon />
+                </button>
+              </div>
+            </div>
+
+            <aside className="telemetry" aria-label="テレメトリ">
+              <div className="telemetry-head">{readout.heading}</div>
+              <dl>
+                {readout.rows.map((row) => (
+                  <div key={row.label}>
+                    <dt>{row.label}</dt>
+                    <dd>
+                      {row.value}
+                      {row.unit && <span>{row.unit}</span>}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="telemetry-state">
+                <small>{readout.state.label}</small>
+                <strong>{readout.state.value}</strong>
+              </div>
+            </aside>
+
+            <p className="scene-hint">
+              <OrbitIcon />
+              ドラッグ:回転 / 右ドラッグ:平行移動 / ホイール:拡大
+            </p>
+
+            <div className="transport">
+              <button className="transport-play" type="button" onClick={toggle} aria-label={isPlaying ? '一時停止' : '再生'}>
+                {isPlaying ? <PauseIcon /> : <PlayIcon />}
+              </button>
+              <span className="timecode">{formatTime(progress)}</span>
+              <div className="timeline">
+                <div className="timeline-bands" aria-hidden="true">
+                  {STAGES.map((item) => (
+                    <i
+                      key={item.id}
+                      style={{
+                        left: `${item.start * 100}%`,
+                        width: `${(item.end - item.start) * 100}%`,
+                        opacity: progress >= item.start ? 1 : 0.18,
+                      }}
+                    />
+                  ))}
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={1000}
+                  value={Math.round(progress * 1000)}
+                  aria-label="再生位置"
+                  onChange={(event) => seek(Number(event.target.value) / 1000)}
+                />
+              </div>
+              <span className="timecode">{formatTime(1)}</span>
+              <button className="icon-button" type="button" onClick={reset} aria-label="最初に戻る">
+                <ResetIcon />
               </button>
             </div>
-          </div>
 
-          <div className="telemetry-card" aria-label="リアルタイムテレメトリ">
-            <div className="telemetry-heading"><i /> Live telemetry</div>
-            <dl>
-              <div><dt>VLA confidence</dt><dd>{metrics.confidence}<span>%</span></dd></div>
-              <div><dt>Contact force</dt><dd>{metrics.force}<span>N</span></dd></div>
-              <div><dt>Inference</dt><dd>{metrics.latency}<span>ms</span></dd></div>
-            </dl>
-            <div className="safety-state"><span className="shield-icon">✓</span><span><small>Safety state</small><strong>Nominal</strong></span></div>
-          </div>
-
-          <div className="interaction-hint"><OrbitIcon />ドラッグして視点を回転</div>
-
-          <div className="transport-panel">
-            <button className="transport-play" type="button" onClick={togglePlayback} aria-label={isPlaying ? '一時停止' : '再生'}>
-              {isPlaying ? <PauseIcon /> : <PlayIcon />}
-            </button>
-            <span className="timecode">{formatTime(progress)}</span>
-            <div className="timeline-wrap">
-              <input
-                aria-label="デモ再生位置"
-                type="range"
-                min="0"
-                max="1000"
-                value={Math.round(progress * 1000)}
-                onChange={(event) => {
-                  setProgress(Number(event.target.value) / 1000)
-                  setHasStarted(true)
-                  setIsPlaying(false)
-                }}
-                style={{ '--progress': `${progress * 100}%` } as React.CSSProperties}
-              />
-              <div className="timeline-markers" aria-hidden="true">
-                {phases.map((phase) => <i key={phase.id} style={{ left: `${phase.start * 100}%` }} />)}
-              </div>
+            <div className={`toast${completed ? ' is-complete' : ''}`} aria-live="polite">
+              <span className="toast-num">{completed ? <Check strokeWidth={2} /> : state.stage.number}</span>
+              <span className="toast-copy">
+                <strong>{completed ? '貼付を完了し、アームを退避しました' : state.stage.summary}</strong>
+              </span>
             </div>
-            <span className="timecode">00:{DEMO_SECONDS}</span>
-            <button className="transport-reset" type="button" onClick={reset} aria-label="最初に戻る"><ResetIcon /></button>
-          </div>
-
-          <div className={`phase-toast ${completed ? 'is-complete' : ''}`} aria-live="polite">
-            <span className="toast-number">{completed ? <CheckIcon /> : phases[phaseIndex].id}</span>
-            <span>
-              <small>{completed ? 'TASK COMPLETE' : phases[phaseIndex].technical}</small>
-              <strong>{completed ? '湿布を安全に貼付しました' : phases[phaseIndex].description}</strong>
-            </span>
           </div>
         </section>
+
+        {/* ---------------- 制御フロー（SFC） ---------------- */}
+        <section className="demo control-flow" id="control-flow" aria-label="制御フロー">
+          <div className="demo-head">
+            <h2 className="demo-title">制御フロー</h2>
+            <p className="demo-time">SFC / IEC 61131-3</p>
+          </div>
+          <ul className="sfc-legend">
+            <li>
+              <b>N</b>非保持（ステップ実行中のみ）
+            </li>
+            <li>
+              <b>S</b>セット（以降も保持）
+            </li>
+            <li>
+              <b>R</b>リセット（解除）
+            </li>
+            <li>
+              <b>P</b>パルス（1 回だけ）
+            </li>
+          </ul>
+          <ControlChart state={state} onSelect={seek} />
+        </section>
+
+        <Dossier />
       </main>
 
-      {showAbout && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowAbout(false)}>
-          <section className="about-modal" role="dialog" aria-modal="true" aria-labelledby="about-title" onMouseDown={(event) => event.stopPropagation()}>
-            <button className="modal-close" type="button" onClick={() => setShowAbout(false)} aria-label="閉じる">×</button>
-            <p className="eyebrow">About this demo</p>
-            <h2 id="about-title">湿布貼付を、身体介助の最初の一歩に。</h2>
-            <p>
-              PatchAssistは、VLA（Vision-Language-Action）モデルと双腕マニピュレータを組み合わせ、
-              柔軟な湿布の剥離・搬送・貼付を一気通貫で行うコンセプトです。
-            </p>
-            <div className="about-grid">
-              <div><small>Robot platform</small><strong>OpenArm 2.0</strong></div>
-              <div><small>Interaction</small><strong>React + Three.js</strong></div>
-              <div><small>3D model license</small><strong>Apache 2.0</strong></div>
-              <div><small>Team</small><strong>KUPAC / Kyoto</strong></div>
-            </div>
-            <a href="https://github.com/enactic/openarm_description" target="_blank" rel="noreferrer">
-              公開モデルの配布元を見る <ArrowIcon />
-            </a>
-          </section>
-        </div>
-      )}
+      <footer className="site-footer">
+        <p>
+          PatchAssist — Challenge ATOM / Kyoto. 3Dモデルは Enactic, Inc. の
+          <a href="https://github.com/enactic/openarm_description" target="_blank" rel="noreferrer">
+            OpenArm Description
+          </a>
+          と Intel Corporation の
+          <a href="https://github.com/IntelRealSense/realsense-ros" target="_blank" rel="noreferrer">
+            realsense-ros
+          </a>
+          （いずれも Apache License 2.0）を同梱しています。
+        </p>
+        <p className="site-footer-note">
+          本ページの数値は公開資料に基づく机上値です。「推定」と明記した項目は実測前の見積りです。
+        </p>
+      </footer>
+
+      <IndexDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        activeIndex={state.stage.index}
+        progress={progress}
+        onSelectStage={(index) => {
+          seek(STAGES[index].start + 0.001)
+          scrollToDemo()
+        }}
+      />
     </div>
   )
 }
