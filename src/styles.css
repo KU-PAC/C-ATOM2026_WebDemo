@@ -508,25 +508,6 @@
     background: var(--ink);
   }
 
-  .hero-still {
-    border: 1px solid var(--gray-200);
-    aspect-ratio: 4 / 5;
-    overflow: hidden;
-  }
-
-  .hero-still img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-
-  @media (min-width: 640px) {
-    .hero-still {
-      aspect-ratio: 16 / 9;
-    }
-  }
-
   @media (min-width: 1024px) {
     .hero {
       flex-direction: row;
@@ -1387,6 +1368,26 @@
     }
   }
 
+  /* lg 未満はスポットライト層を出さないので、同じ写真をヒーローの地に敷く。
+     3D のレンダを貼ると場面を直すたび古くなるが、写真なら陳腐化しない。 */
+  @media (max-width: 1023px) {
+    .hero {
+      background-image: url("/hero-photo.jpg");
+      background-size: cover;
+      background-position: 62% 28%;
+    }
+
+    /* 見出しは黒のままなので、縦方向に白を被せて字面を守る */
+    .hero::before {
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.94) 0%,
+        rgba(255, 255, 255, 0.86) 42%,
+        rgba(255, 255, 255, 0.42) 100%
+      );
+    }
+  }
+
   /* --- スマートフォン（縦持ち） --- */
   @media (max-width: 767px) {
     .header-nav a,
@@ -1491,12 +1492,6 @@
     .stage-row {
       gap: 0.7em;
       padding: calc(var(--feature-pad) * 0.75) calc(var(--feature-pad) * 0.85);
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .hero-still {
-      display: none;
     }
   }
 }

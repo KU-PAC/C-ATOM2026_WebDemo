@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { ArrowUpRight, Check, List } from 'lucide-react'
 import ControlChart from './components/ControlChart'
 import Dossier from './components/Dossier'
-import ImageRevealBackground, { BG_IMAGE_STILL } from './components/ImageRevealBackground'
+import ImageRevealBackground from './components/ImageRevealBackground'
 import IndexDrawer from './components/IndexDrawer'
 import { BracketFrame, CornerBracket, GlobeWire } from './components/marks'
 import { type CameraMode, PatchAssistScene, SceneLoader } from './components/PatchAssistScene'
@@ -268,11 +268,6 @@ export default function App() {
               <i />
               SIMULATION
             </p>
-          </div>
-
-          {/* lg 未満はスポットライトを出さず、静止画を 1 枚だけ置く */}
-          <div className="hero-still lg:hidden">
-            <img src={BG_IMAGE_STILL} alt="OpenArm 2.0 の双腕が湿布を背中に圧着している様子" loading="lazy" />
           </div>
         </section>
 

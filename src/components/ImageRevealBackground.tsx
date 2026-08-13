@@ -12,8 +12,6 @@ import { useEffect, useRef } from 'react'
 
 export const BG_IMAGE_BASE = '/hero-photo.jpg'
 export const BG_IMAGE_REVEAL = '/hero-photo-full.jpg'
-/** lg 未満はスポットライトを出さないので、静止画は 3D レンダリングを使う。 */
-export const BG_IMAGE_STILL = '/hero-reveal.jpg'
 
 /**
  * マスク用キャンバスの解像度倍率。半径・座標を同じ率で縮めているので
