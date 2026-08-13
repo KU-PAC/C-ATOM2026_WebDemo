@@ -147,6 +147,61 @@ function DepthCamera({ accent, active }: { accent: string; active: number }) {
 
 useGLTF.preload(D435_URL)
 
+/**
+ * Strip the Blender leftovers and repaint every link.
+ *
+ * Every visual .dae in the OpenArm package was exported from Blender with its
+ * default scene, so each one ships a point light and a camera; left in place
+ * they blow the whole room out. The materials have to be replaced too, so the
+ * arm reads as one machine rather than as whatever each mesh was exported with.
+ *
+ * URDFLoader resolves before its meshes have arrived, and each late .dae brings
+ * its own light and its own materials with it — so this cannot run only once on
+ * load. It is idempotent, and every mesh it has already seen is marked.
+ */
+function dressRobot(robot: URDFRobot) {
+  const strays: THREE.Object3D[] = []
+  robot.traverse((child) => {
+    if ((child as THREE.Light).isLight || (child as THREE.Camera).isCamera) strays.push(child)
+  })
+  strays.forEach((stray) => stray.removeFromParent())
+
+  robot.traverse((child) => {
+    if (!(child instanceof THREE.Mesh) || child.userData.dressed) return
+    // The retrofit tool is parented into the wrist link, so it would be caught
+    // by this pass and flattened to one link colour. It arrives with its own
+    // materials; leave everything under it alone.
+    for (let node = child.parent; node && node !== robot; node = node.parent) {
+      if (node.userData.retrofit) {
+        child.userData.dressed = true
+        return
+      }
+    }
+    child.userData.dressed = true
+
+    let link: THREE.Object3D | null = child.parent
+    while (link && link !== robot && !link.name.startsWith('openarm_')) link = link.parent
+    const name = link?.name ?? ''
+    // The whole pinch gripper — housing and fingers — comes off; the suction
+    // head bolts onto the joint 7 flange in its place.
+    if (name.includes('ee_link') || name.includes('ee_base_link')) {
+      child.visible = false
+      return
+    }
+    child.castShadow = true
+    child.receiveShadow = true
+    const color = linkColor(name)
+    // Standard, not Lambert: a matte black body has no shading cue under
+    // diffuse-only light. The environment map's specular is what draws the
+    // edges of every link.
+    const sources = Array.isArray(child.material) ? child.material : [child.material]
+    const replacement = sources.map(
+      () => new THREE.MeshStandardMaterial({ color, metalness: 0.34, roughness: 0.46 }),
+    )
+    child.material = Array.isArray(child.material) ? replacement : replacement[0]
+  })
+}
+
 interface OpenArmRigProps {
   state: DemoState
   accents: { scan: string; vac: string; force: string }
@@ -168,45 +223,19 @@ export function OpenArmRig({ state, accents, onCup }: OpenArmRigProps) {
   )
   const reference = useMemo(() => new THREE.Vector3(0, 0, 1), [])
 
-  useEffect(() => {
-    // Every visual .dae in the OpenArm package was exported from Blender with
-    // its default scene, so each one ships a point light of colour 1000/1000/1000
-    // and a camera. Left in place they blow the whole room out to white.
-    const strays: THREE.Object3D[] = []
+  // 取りこぼしを毎フレーム拾い直す。URDF の onLoad はメッシュの到着を待たない
+  // ので、遅れて届いた .dae は初期化を素通りしてしまう。
+  useFrame(() => {
+    let pending = 0
     robot.traverse((child) => {
-      if ((child as THREE.Light).isLight || (child as THREE.Camera).isCamera) strays.push(child)
+      if ((child as THREE.Light).isLight || (child as THREE.Camera).isCamera) pending += 1
+      else if ((child as THREE.Mesh).isMesh && !child.userData.dressed) pending += 1
     })
-    strays.forEach((stray) => stray.removeFromParent())
+    if (pending > 0) dressRobot(robot)
+  })
 
-    robot.traverse((child) => {
-      if (!(child instanceof THREE.Mesh)) return
-      // The retrofit tool is parented into the wrist link, so it would be
-      // caught by this pass and flattened to one link colour. It arrives with
-      // its own materials; leave everything under it alone.
-      for (let node = child.parent; node && node !== robot; node = node.parent) {
-        if (node.userData.retrofit) return
-      }
-      let link: THREE.Object3D | null = child.parent
-      while (link && link !== robot && !link.name.startsWith('openarm_')) link = link.parent
-      const name = link?.name ?? ''
-      // The whole pinch gripper — housing and fingers — comes off; the suction
-      // head bolts onto the joint 7 flange in its place.
-      if (name.includes('ee_link') || name.includes('ee_base_link')) {
-        child.visible = false
-        return
-      }
-      child.castShadow = true
-      child.receiveShadow = true
-      const color = linkColor(name)
-      // Standard, not Lambert: a matte black body has no shading cue under
-      // diffuse-only light. The environment map's specular is what draws the
-      // edges of every link.
-      const sources = Array.isArray(child.material) ? child.material : [child.material]
-      const replacement = sources.map(
-        () => new THREE.MeshStandardMaterial({ color, metalness: 0.34, roughness: 0.46 }),
-      )
-      child.material = Array.isArray(child.material) ? replacement : replacement[0]
-    })
+  useEffect(() => {
+    dressRobot(robot)
     if (import.meta.env.DEV) {
       ;(window as unknown as { __rig?: URDFRobot }).__rig = robot
     }
