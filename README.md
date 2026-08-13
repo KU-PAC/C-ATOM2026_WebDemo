@@ -1,5 +1,7 @@
 # PatchAssist 3D Demo
 
+公開デモ: <https://challenge-atom-kyoto.raptor-s.workers.dev/>
+
 湿布貼付支援ロボット「PatchAssist」の、クライアント提示用インタラクティブデモです。
 OpenArm 2.0 の双腕で、次の 4 工程をひと続きに実行するところまでを可視化します。
 
@@ -22,6 +24,8 @@ npm run dev
 ```
 
 本番ビルドは `npm run build`、ビルド結果の確認は `npm run preview` です。
+公開は `npm run deploy`。ビルドして `dist/` を Cloudflare Workers へ直接アップロードします
+（宛先は `wrangler.jsonc` の `name`。ここを変えると公開 URL が変わります）。
 
 ## 操作
 
