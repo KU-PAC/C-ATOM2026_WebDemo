@@ -1,0 +1,15 @@
+aws_profile = "your-aws-profile"
+
+# Optional: set both or set neither
+public_domain        = "www.example.com"
+acm_certificate_arn  = "arn:aws:acm:us-east-1:123456789012:certificate/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# Optional overrides
+aws_region = "ap-northeast-1"
+bucket_name = "your-static-site-bucket-name"
+cloudfront_distribution_name = "your-cloudfront-distribution-name"
+
+tags = {
+  Project = "your-project"
+  Env     = "prod"
+}

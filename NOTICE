@@ -1,0 +1,17 @@
+PatchAssist 3D Demo
+Copyright (c) Contributors to PatchAssist 3D Demo
+
+KUPAC holds the right to publish this work under an open-source license.
+Copyright ownership of the deliverables remains with contributors in KUPAC.
+
+This repository also includes third-party software and assets that are
+licensed under their own terms. These third-party components are not relicensed
+by KUPAC under Apache License 2.0.
+
+For details, see:
+- THIRD_PARTY_NOTICES.md
+- public/models/openarm/licenses/Apache-2.0.txt
+- public/models/realsense/licenses/Apache-2.0.txt and NOTICE.md
+
+Additional attribution for the hero photograph is documented in
+THIRD_PARTY_NOTICES.md.
